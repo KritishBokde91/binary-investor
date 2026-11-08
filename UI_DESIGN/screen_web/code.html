@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<meta content="web_standard" name="shell-type"/>
+<title>SheepOrSleep | Maruti Suzuki India Ltd (MARUTI.NS)</title>
+<!-- Google Fonts: Plus Jakarta Sans & Inter -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<!-- Tailwind CSS CDN -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "surface-dim": "#d2d9f4",
+            "on-surface": "#131b2e",
+            "on-error": "#ffffff",
+            "primary": "#3525cd",
+            "tertiary": "#703a00",
+            "on-surface-variant": "#464555",
+            "on-secondary-fixed-variant": "#005137",
+            "on-primary-fixed-variant": "#3323cc",
+            "primary-fixed": "#e2dfff",
+            "outline": "#777587",
+            "secondary-container": "#82f5c1",
+            "background": "#faf8ff",
+            "primary-fixed-dim": "#c3c0ff",
+            "tertiary-container": "#934e00",
+            "surface": "#faf8ff",
+            "secondary-fixed-dim": "#68dba9",
+            "on-secondary-fixed": "#002114",
+            "surface-container-lowest": "#ffffff",
+            "surface-tint": "#4d44e3",
+            "surface-container-highest": "#dae2fd",
+            "on-tertiary-fixed": "#2f1500",
+            "surface-container-low": "#f2f3ff",
+            "primary-container": "#4f46e5",
+            "secondary-fixed": "#85f8c4",
+            "on-primary": "#ffffff",
+            "on-background": "#131b2e",
+            "inverse-primary": "#c3c0ff",
+            "on-tertiary": "#ffffff",
+            "surface-variant": "#dae2fd",
+            "on-secondary-container": "#00714e",
+            "on-primary-container": "#dad7ff",
+            "on-secondary": "#ffffff",
+            "secondary": "#006c4a",
+            "surface-container-high": "#e2e7ff",
+            "error-container": "#ffdad6",
+            "inverse-surface": "#283044",
+            "tertiary-fixed-dim": "#ffb77d",
+            "inverse-on-surface": "#eef0ff",
+            "tertiary-fixed": "#ffdcc3",
+            "on-tertiary-container": "#ffd2b1",
+            "on-primary-fixed": "#0f0069",
+            "on-tertiary-fixed-variant": "#6e3900",
+            "surface-bright": "#faf8ff",
+            "error": "#ba1a1a",
+            "outline-variant": "#c7c4d8",
+            "surface-container": "#eaedff",
+            "on-error-container": "#93000a"
+          },
+          fontFamily: {
+            sans: ["'Plus Jakarta Sans'", "sans-serif"],
+            body: ["'Inter'", "sans-serif"],
+            headline: ["'Plus Jakarta Sans'", "sans-serif"]
+          },
+          borderRadius: {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          spacing: {
+            "gutter": "1.5rem",
+            "space-lg": "1.5rem",
+            "space-xl": "2rem",
+            "space-sm": "0.5rem",
+            "margin-mobile": "1rem",
+            "gutter-mobile": "1rem",
+            "space-xs": "0.25rem",
+            "space-2xl": "3rem",
+            "margin": "2rem",
+            "space-md": "1rem"
+          }
+        }
+      }
+    };
+  </script>
+<style>
+    @layer base {
+      html, body {
+        margin: 0;
+        padding: 0;
+        font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+      }
+    }
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+      display: inline-block;
+      vertical-align: middle;
+      line-height: 1;
+    }
+  </style>
+</head>
+<body class="bg-[#faf8ff] text-[#131b2e] antialiased min-h-screen flex flex-col font-sans">
+<!-- Header Navigation -->
+<header class="fixed top-0 left-0 right-0 z-40 bg-surface-container-lowest/95 backdrop-blur-md shadow-sm border-b border-surface-container-high/40">
+<div class="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+<!-- Left: Logo & Search -->
+<div class="flex items-center gap-6 shrink-0">
+<a class="flex items-center gap-2.5 text-on-surface hover:opacity-90 transition-opacity whitespace-nowrap" href="#">
+<div class="w-8 h-8 rounded-lg bg-primary-container text-on-primary flex items-center justify-center shadow-sm shrink-0">
+<span class="material-symbols-outlined text-[20px]">psychology</span>
+</div>
+<span class="font-headline text-lg sm:text-xl font-bold tracking-tight text-on-surface">SheepOrSleep</span>
+</a>
+<div class="hidden md:flex items-center gap-2 bg-surface-container px-3.5 py-1.5 rounded-lg hover:bg-surface-container-high transition-colors cursor-pointer border border-transparent hover:border-outline-variant whitespace-nowrap">
+<span class="material-symbols-outlined text-on-surface-variant text-[18px]">search</span>
+<div class="flex items-center gap-1.5 text-xs sm:text-sm whitespace-nowrap">
+<span class="font-semibold text-on-surface">MARUTI</span>
+<span class="text-outline">|</span>
+<span class="text-on-surface-variant">Maruti Suzuki India Ltd</span>
+<span class="bg-surface-container-highest text-on-surface-variant text-[11px] font-medium px-1.5 py-0.5 rounded">Auto</span>
+</div>
+<span class="material-symbols-outlined text-outline text-[16px] ml-1">unfold_more</span>
+</div>
+</div>
+<!-- Center: Nav Links -->
+<nav class="hidden lg:flex items-center gap-2 shrink-0">
+<a class="px-3.5 py-2 text-sm font-semibold rounded-lg bg-primary-container text-on-primary transition-colors shadow-sm whitespace-nowrap" href="#">Dashboard</a>
+<a class="px-3.5 py-2 text-sm font-medium text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors rounded-lg whitespace-nowrap" href="#">AI Copilot</a>
+<a class="px-3.5 py-2 text-sm font-medium text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors rounded-lg whitespace-nowrap" href="#">How it works</a>
+</nav>
+<!-- Right: Actions & User -->
+<div class="flex items-center gap-3 shrink-0">
+<div class="flex items-center bg-surface-container p-0.5 rounded-full border border-surface-container-high">
+<button aria-label="Light mode" class="w-7 h-7 rounded-full bg-surface-container-lowest shadow-sm flex items-center justify-center text-on-surface">
+<span class="material-symbols-outlined text-[15px]">light_mode</span>
+</button>
+<button aria-label="Dark mode" class="w-7 h-7 rounded-full flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined text-[15px]">dark_mode</span>
+</button>
+</div>
+<button aria-label="Notifications" class="w-8 h-8 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined text-[20px]">notifications</span>
+</button>
+<div class="flex items-center gap-2 pl-2 border-l border-surface-container-high whitespace-nowrap">
+<div class="w-8 h-8 rounded-full bg-primary-container text-on-primary flex items-center justify-center text-xs font-bold">AP</div>
+<span class="hidden sm:inline text-xs font-semibold text-on-surface whitespace-nowrap">Arjun P.</span>
+</div>
+</div>
+</div>
+<!-- Sub-header market status line -->
+<div class="bg-surface-container-low border-t border-surface-container/60 h-9 flex items-center text-xs text-on-surface-variant">
+<div class="max-w-[1280px] w-full mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between whitespace-nowrap">
+<div class="flex items-center gap-2">
+<span class="font-medium text-on-surface-variant">End-of-day data, delayed</span>
+<span class="text-outline">•</span>
+<span>As of 8 Nov 2026, 3:30 PM IST</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="bg-surface-container-highest text-on-surface-variant px-2 py-0.5 rounded text-[11px] font-semibold">NSE / BSE</span>
+</div>
+</div>
+</div>
+</header>
+<!-- Main Content Body -->
+<main class="w-full pt-28 pb-16 flex-1">
+<div class="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8">
+<!-- Breadcrumb Bar -->
+<div class="flex flex-wrap items-center justify-between gap-2 py-2 mb-4 text-xs font-medium">
+<div class="flex items-center gap-2 text-on-surface-variant whitespace-nowrap">
+<span class="hover:text-primary transition-colors cursor-pointer">NSE Equities</span>
+<span class="text-outline">/</span>
+<span class="hover:text-primary transition-colors cursor-pointer">Automotive Sector</span>
+<span class="text-outline">/</span>
+<span class="text-on-surface font-semibold">MARUTI.NS</span>
+<span class="ml-2 px-2.5 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant text-[11px] font-medium border border-surface-container-highest">End-of-day data, delayed</span>
+</div>
+<div class="flex items-center gap-1.5 text-on-surface-variant text-[11px] whitespace-nowrap">
+<span class="material-symbols-outlined text-[15px] text-primary">analytics</span>
+<span>Behavioral Overview</span>
+</div>
+</div>
+<!-- 1. Stock Overview Hero Card -->
+<section class="bg-surface-container-lowest rounded-2xl shadow-sm border border-surface-container-high/60 p-6 md:p-8 mb-8">
+<div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+<!-- Left: Stock Title & Live Price -->
+<div class="flex-1">
+<div class="flex items-center gap-3.5 mb-1.5 flex-nowrap">
+<h1 class="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-on-surface tracking-tight whitespace-nowrap">Maruti Suzuki India Ltd.</h1>
+<span class="bg-surface-container text-on-surface font-bold text-xs sm:text-sm px-2.5 py-1 rounded-md border border-surface-container-high shrink-0">MARUTI</span>
+</div>
+<p class="text-sm sm:text-base text-on-surface-variant font-normal">India's leading passenger automotive manufacturer • Flagship Index Nifty 50</p>
+<!-- Price + Change Pill -->
+<div class="flex items-baseline gap-3 mt-4 flex-wrap">
+<span class="text-3xl sm:text-4xl font-extrabold text-on-surface tracking-tight leading-none whitespace-nowrap">₹12,815.40</span>
+<div class="inline-flex items-center gap-1 text-emerald-700 font-semibold text-xs sm:text-sm bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full whitespace-nowrap">
+<span class="material-symbols-outlined text-[18px]">trending_up</span>
+<span>+₹142.80 (+1.13%) today</span>
+</div>
+</div>
+</div>
+</div>
+<!-- 52-Week Range Slider Card -->
+<div class="mt-6 pt-6 pb-6 px-6 bg-surface-container-low/70 rounded-xl border border-surface-container-high/60">
+<div class="flex items-center justify-between mb-4 text-xs sm:text-sm">
+<span class="font-semibold text-on-surface">52-Week Range &amp; Historical Cycle</span>
+<span class="inline-flex items-center text-xs font-semibold text-primary bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-full whitespace-nowrap">Near 52W High (+2.1% from peak)</span>
+</div>
+<!-- Progress Bar & Slider Pin -->
+<div class="relative w-full h-3 bg-surface-container-highest rounded-full my-5">
+<div class="absolute left-0 top-0 h-full bg-gradient-to-r from-indigo-300 via-indigo-500 to-indigo-700 rounded-full" style="width: 93%;"></div>
+<div class="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 flex flex-col items-center" style="left: 93%;">
+<div class="w-4 h-4 rounded-full bg-indigo-600 ring-4 ring-indigo-200 shadow-md"></div>
+</div>
+</div>
+<!-- 52W Milestones clearly separated with generous padding -->
+<div class="flex items-center justify-between text-xs sm:text-sm pt-2 text-on-surface-variant">
+<div class="flex flex-col text-left">
+<span class="font-bold text-on-surface">52W Low: <span class="font-semibold text-on-surface-variant">₹9,737.50</span></span>
+</div>
+<div class="flex flex-col text-center">
+<span class="font-bold text-on-surface">Cycle Median: <span class="font-semibold text-on-surface-variant">₹11,388.75</span></span>
+</div>
+<div class="flex flex-col text-end">
+<span class="font-bold text-on-surface">52W High: <span class="font-semibold text-on-surface-variant">₹13,040.00</span></span>
+</div>
+</div>
+</div>
+<!-- 4 Key Stat Metric Tiles -->
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-3.5 mt-5">
+<div class="bg-surface-container-low p-4 rounded-xl border border-surface-container-high/60 flex flex-col justify-between">
+<span class="text-xs text-on-surface-variant font-medium">Market Capitalization</span>
+<span class="text-lg sm:text-xl font-bold text-on-surface mt-1">₹3.86 Lakh Cr</span>
+</div>
+<div class="bg-surface-container-low p-4 rounded-xl border border-surface-container-high/60 flex flex-col justify-between">
+<span class="text-xs text-on-surface-variant font-medium">P/E Ratio (TTM)</span>
+<span class="text-lg sm:text-xl font-bold text-on-surface mt-1">28.4x</span>
+</div>
+<div class="bg-surface-container-low p-4 rounded-xl border border-surface-container-high/60 flex flex-col justify-between">
+<span class="text-xs text-on-surface-variant font-medium">30-Day Avg Volume</span>
+<span class="text-lg sm:text-xl font-bold text-on-surface mt-1">4.2 Lakh</span>
+</div>
+<div class="bg-surface-container-low p-4 rounded-xl border border-surface-container-high/60 flex flex-col justify-between">
+<span class="text-xs text-on-surface-variant font-medium">Beta (vs NIFTY 50)</span>
+<span class="text-lg sm:text-xl font-bold text-on-surface mt-1">0.82</span>
+</div>
+</div>
+</section>
+<!-- 2. "At a Glance" Behavioral Gauges Row (3 Equal Cards) -->
+<section class="mb-8">
+<div class="flex items-center justify-between mb-4">
+<div>
+<h2 class="text-xl sm:text-2xl font-bold text-on-surface">At a Glance: Behavioral Gauges</h2>
+<p class="text-xs sm:text-sm text-on-surface-variant mt-0.5">Statistical clarity designed to remove emotional bias before executing trades.</p>
+</div>
+<div class="hidden sm:flex items-center gap-1.5 text-xs font-semibold text-primary bg-indigo-50 border border-indigo-200 px-3 py-1 rounded-full whitespace-nowrap">
+<span class="material-symbols-outlined text-[16px]">psychology</span>
+<span>Behavioral Calibration</span>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+<!-- Gauge 1: Herd Behavior -->
+<div class="bg-surface-container-lowest rounded-2xl shadow-sm border border-surface-container-high/60 p-6 flex flex-col justify-between hover:shadow-md transition-shadow">
+<div>
+<div class="flex items-center justify-between mb-4">
+<h3 class="text-base sm:text-lg font-bold text-on-surface">Herd Behavior</h3>
+<span class="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 text-xs font-bold px-2.5 py-0.5 rounded-full whitespace-nowrap">
+<span class="material-symbols-outlined text-[14px]">check_circle</span>
+                  Calm
+                </span>
+</div>
+<!-- Gauge Chart -->
+<div class="flex flex-col items-center my-4">
+<div class="relative w-48 h-28 flex flex-col items-center justify-start">
+<svg class="w-48 h-24 overflow-visible" viewbox="0 0 160 85">
+<!-- Gauge Track -->
+<path d="M 15 80 A 65 65 0 0 1 145 80" fill="none" stroke="#eaedff" stroke-linecap="round" stroke-width="12"></path>
+<!-- Low Band (Green) -->
+<path d="M 15 80 A 65 65 0 0 1 65 22" fill="none" stroke="#68dba9" stroke-linecap="round" stroke-width="12"></path>
+<!-- Mid Band (Amber) -->
+<path d="M 65 22 A 65 65 0 0 1 115 32" fill="none" stroke="#ffdcc3" stroke-width="12"></path>
+<!-- High Band (Red) -->
+<path d="M 115 32 A 65 65 0 0 1 145 80" fill="none" stroke="#ffdad6" stroke-linecap="round" stroke-width="12"></path>
+<!-- Indicator Needle for 34/100 -->
+<g transform="translate(80, 80)">
+<line stroke="#006c4a" stroke-linecap="round" stroke-width="3.5" x1="0" x2="-38" y1="0" y2="-32"></line>
+<circle cx="0" cy="0" fill="#006c4a" r="5"></circle>
+</g>
+</svg>
+<div class="mt-2 text-center">
+<span class="text-2xl font-black text-secondary leading-none">34</span>
+<span class="text-xs text-outline font-semibold"> / 100</span>
+</div>
+</div>
+</div>
+<p class="text-xs sm:text-sm text-on-surface-variant leading-relaxed mt-3">
+                Investors are making independent decisions with steady retail volumes and zero copycat momentum spikes.
+              </p>
+</div>
+</div>
+<!-- Gauge 2: Panic Selling -->
+<div class="bg-surface-container-lowest rounded-2xl shadow-sm border border-surface-container-high/60 p-6 flex flex-col justify-between hover:shadow-md transition-shadow">
+<div>
+<div class="flex items-center justify-between mb-4">
+<h3 class="text-base sm:text-lg font-bold text-on-surface">Panic Selling</h3>
+<span class="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 text-xs font-bold px-2.5 py-0.5 rounded-full whitespace-nowrap">
+<span class="material-symbols-outlined text-[14px]">sentiment_satisfied</span>
+                  Low Fear
+                </span>
+</div>
+<!-- Gauge Chart -->
+<div class="flex flex-col items-center my-4">
+<div class="relative w-48 h-28 flex flex-col items-center justify-start">
+<svg class="w-48 h-24 overflow-visible" viewbox="0 0 160 85">
+<path d="M 15 80 A 65 65 0 0 1 145 80" fill="none" stroke="#eaedff" stroke-linecap="round" stroke-width="12"></path>
+<path d="M 15 80 A 65 65 0 0 1 50 35" fill="none" stroke="#68dba9" stroke-linecap="round" stroke-width="12"></path>
+<path d="M 50 35 A 65 65 0 0 1 100 25" fill="none" stroke="#ffdcc3" stroke-width="12"></path>
+<path d="M 100 25 A 65 65 0 0 1 145 80" fill="none" stroke="#ffdad6" stroke-linecap="round" stroke-width="12"></path>
+<!-- Needle for 18/100 -->
+<g transform="translate(80, 80)">
+<line stroke="#006c4a" stroke-linecap="round" stroke-width="3.5" x1="0" x2="-48" y1="0" y2="-18"></line>
+<circle cx="0" cy="0" fill="#006c4a" r="5"></circle>
+</g>
+</svg>
+<div class="mt-2 text-center">
+<span class="text-2xl font-black text-secondary leading-none">18</span>
+<span class="text-xs text-outline font-semibold"> / 100</span>
+</div>
+</div>
+</div>
+<p class="text-xs sm:text-sm text-on-surface-variant leading-relaxed mt-3">
+                Pullback volumes show no institutional distress. Bid-ask spreads remain disciplined with steady institutional absorption.
+              </p>
+</div>
+</div>
+<!-- Gauge 3: Staying Power -->
+<div class="bg-surface-container-lowest rounded-2xl shadow-sm border border-surface-container-high/60 p-6 flex flex-col justify-between hover:shadow-md transition-shadow">
+<div>
+<div class="flex items-center justify-between mb-4">
+<h3 class="text-base sm:text-lg font-bold text-on-surface">Staying Power</h3>
+<span class="inline-flex items-center gap-1 bg-indigo-100 text-indigo-800 text-xs font-bold px-2.5 py-0.5 rounded-full whitespace-nowrap">
+<span class="material-symbols-outlined text-[14px]">military_tech</span>
+                  High Edge
+                </span>
+</div>
+<!-- Gauge Chart -->
+<div class="flex flex-col items-center my-4">
+<div class="relative w-48 h-28 flex flex-col items-center justify-start">
+<svg class="w-48 h-24 overflow-visible" viewbox="0 0 160 85">
+<path d="M 15 80 A 65 65 0 0 1 145 80" fill="none" stroke="#eaedff" stroke-linecap="round" stroke-width="12"></path>
+<path d="M 15 80 A 65 65 0 0 1 135 50" fill="none" stroke="#4f46e5" stroke-linecap="round" stroke-width="12"></path>
+<!-- Needle -->
+<g transform="translate(80, 80)">
+<line stroke="#3525cd" stroke-linecap="round" stroke-width="3.5" x1="0" x2="38" y1="0" y2="-34"></line>
+<circle cx="0" cy="0" fill="#3525cd" r="5"></circle>
+</g>
+</svg>
+<div class="mt-2 text-center">
+<span class="text-xl sm:text-2xl font-black text-primary leading-none">Typically 70–90%</span>
+</div>
+</div>
+</div>
+<p class="text-xs sm:text-sm text-on-surface-variant leading-relaxed mt-3">
+                In past simulations, staying invested came out ahead in roughly 7 to 9 of 10 cases. This depends on assumptions.
+              </p>
+</div>
+</div>
+</div>
+</section>
+<!-- 3. Price & Volume Chart with Jagged Daily Line -->
+<section class="bg-surface-container-lowest rounded-2xl shadow-sm border border-surface-container-high/60 p-6 md:p-8 mb-8">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+<div>
+<div class="flex items-center gap-2">
+<h2 class="text-lg sm:text-xl font-bold text-on-surface">1-Year Price &amp; Herd Dispersion Flow</h2>
+<span class="material-symbols-outlined text-[20px] text-primary" title="Annotated behavioral crowd events">candlestick_chart</span>
+</div>
+<p class="text-xs sm:text-sm text-on-surface-variant mt-0.5">Historical daily price behavior and volume flow on the National Stock Exchange</p>
+</div>
+<!-- Controls -->
+<div class="flex items-center gap-3 flex-wrap">
+<div class="flex items-center bg-surface-container p-1 rounded-lg border border-surface-container-high">
+<button class="px-2.5 py-1 text-xs font-medium text-on-surface-variant hover:text-on-surface rounded">1M</button>
+<button class="px-2.5 py-1 text-xs font-medium text-on-surface-variant hover:text-on-surface rounded">6M</button>
+<button class="px-2.5 py-1 text-xs font-bold bg-surface-container-lowest text-primary shadow-sm rounded">1Y</button>
+<button class="px-2.5 py-1 text-xs font-medium text-on-surface-variant hover:text-on-surface rounded">5Y</button>
+<button class="px-2.5 py-1 text-xs font-medium text-on-surface-variant hover:text-on-surface rounded">All</button>
+</div>
+<div class="flex items-center bg-surface-container p-1 rounded-lg border border-surface-container-high">
+<button class="p-1 rounded bg-surface-container-lowest text-primary shadow-sm" title="Area Mode">
+<span class="material-symbols-outlined text-[16px]">show_chart</span>
+</button>
+<button class="p-1 rounded text-on-surface-variant hover:text-on-surface" title="Candles">
+<span class="material-symbols-outlined text-[16px]">bar_chart</span>
+</button>
+</div>
+<label class="flex items-center gap-2 bg-surface-container-low hover:bg-surface-container px-3 py-1.5 rounded-lg cursor-pointer border border-surface-container-high">
+<input checked="" class="w-4 h-4 rounded text-primary focus:ring-primary accent-primary cursor-pointer" type="checkbox"/>
+<span class="text-xs font-semibold text-on-surface whitespace-nowrap">Show Herd Events</span>
+</label>
+</div>
+</div>
+<!-- SVG Chart Container -->
+<div class="w-full bg-[#f8f9ff] rounded-xl p-4 border border-surface-container-high/70 relative overflow-hidden">
+<div class="flex items-center justify-between text-[11px] text-outline font-semibold mb-2">
+<span>NSE: MARUTI • DAILY CLOSE</span>
+<span class="text-secondary">Vol Range: 2.1L – 18.4L Shares</span>
+</div>
+<div class="relative w-full h-[340px]">
+<svg class="w-full h-full" preserveaspectratio="none" viewbox="0 0 1000 340">
+<defs>
+<lineargradient id="jaggedAreaGradient" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="#4f46e5" stop-opacity="0.28"></stop>
+<stop offset="70%" stop-color="#4f46e5" stop-opacity="0.05"></stop>
+<stop offset="100%" stop-color="#4f46e5" stop-opacity="0"></stop>
+</lineargradient>
+</defs>
+<!-- Gridlines -->
+<line stroke="#e2e7ff" stroke-dasharray="3 3" stroke-width="1" x1="60" x2="980" y1="30" y2="30"></line>
+<text fill="#777587" font-family="'Inter'" font-size="10" text-anchor="end" x="50" y="34">₹13,500</text>
+<line stroke="#e2e7ff" stroke-dasharray="3 3" stroke-width="1" x1="60" x2="980" y1="85" y2="85"></line>
+<text fill="#777587" font-family="'Inter'" font-size="10" text-anchor="end" x="50" y="89">₹12,500</text>
+<line stroke="#e2e7ff" stroke-dasharray="3 3" stroke-width="1" x1="60" x2="980" y1="140" y2="140"></line>
+<text fill="#777587" font-family="'Inter'" font-size="10" text-anchor="end" x="50" y="144">₹11,500</text>
+<line stroke="#e2e7ff" stroke-dasharray="3 3" stroke-width="1" x1="60" x2="980" y1="195" y2="195"></line>
+<text fill="#777587" font-family="'Inter'" font-size="10" text-anchor="end" x="50" y="199">₹10,500</text>
+<line stroke="#dae2fd" stroke-width="1" x1="60" x2="980" y1="250" y2="250"></line>
+<text fill="#777587" font-family="'Inter'" font-size="10" text-anchor="end" x="50" y="254">₹9,500</text>
+<!-- Realistic Jagged Daily Fluctuations Line & Area -->
+<!-- Points starting Nov 2025 at ~₹10,400 (y~200) zigzagging through pullbacks and climbs to current ₹12,815 (y~68) -->
+<path d="M 60 205 L 85 208 L 105 198 L 125 202 L 145 194 L 165 197 L 185 186 L 205 189 L 225 181 L 245 174 L 265 178 L 285 168 L 305 171 L 325 160 L 345 156 L 365 162 L 385 149 L 405 154 L 425 146 L 445 158 L 465 164 L 485 172 L 505 168 L 525 182 L 545 175 L 565 165 L 585 169 L 605 152 L 625 145 L 645 149 L 665 136 L 685 130 L 705 134 L 725 120 L 745 116 L 765 122 L 785 108 L 805 102 L 820 114 L 835 106 L 855 98 L 875 92 L 895 95 L 915 82 L 935 77 L 950 81 L 960 68 L 960 250 L 60 250 Z" fill="url(#jaggedAreaGradient)"></path>
+<path d="M 60 205 L 85 208 L 105 198 L 125 202 L 145 194 L 165 197 L 185 186 L 205 189 L 225 181 L 245 174 L 265 178 L 285 168 L 305 171 L 325 160 L 345 156 L 365 162 L 385 149 L 405 154 L 425 146 L 445 158 L 465 164 L 485 172 L 505 168 L 525 182 L 545 175 L 565 165 L 585 169 L 605 152 L 625 145 L 645 149 L 665 136 L 685 130 L 705 134 L 725 120 L 745 116 L 765 122 L 785 108 L 805 102 L 820 114 L 835 106 L 855 98 L 875 92 L 895 95 L 915 82 L 935 77 L 950 81 L 960 68" fill="none" stroke="#4f46e5" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"></path>
+<!-- Q2 Marker -->
+<circle cx="820" cy="114" fill="#006c4a" r="5" stroke="#ffffff" stroke-width="2"></circle>
+<!-- Current Price Node -->
+<circle cx="960" cy="68" fill="#3525cd" r="5.5" stroke="#ffffff" stroke-width="2.5"></circle>
+<circle cx="960" cy="68" fill="#3525cd" opacity="0.2" r="11"></circle>
+<!-- Volume Baseline -->
+<line stroke="#e2e7ff" stroke-width="1" x1="60" x2="980" y1="265" y2="265"></line>
+<text fill="#777587" font-family="'Inter'" font-size="9" text-anchor="end" x="50" y="300">Vol</text>
+<!-- Realistic Volume Bars -->
+<rect fill="#dae2fd" height="20" rx="1" width="7" x="75" y="295"></rect>
+<rect fill="#dae2fd" height="25" rx="1" width="7" x="110" y="290"></rect>
+<rect fill="#dae2fd" height="27" rx="1" width="7" x="150" y="288"></rect>
+<rect fill="#dae2fd" height="17" rx="1" width="7" x="190" y="298"></rect>
+<rect fill="#dae2fd" height="35" rx="1" width="7" x="230" y="280"></rect>
+<rect fill="#dae2fd" height="23" rx="1" width="7" x="270" y="292"></rect>
+<rect fill="#dae2fd" height="30" rx="1" width="7" x="310" y="285"></rect>
+<rect fill="#dae2fd" height="38" rx="1" width="7" x="350" y="277"></rect>
+<rect fill="#dae2fd" height="25" rx="1" width="7" x="390" y="290"></rect>
+<rect fill="#dae2fd" height="33" rx="1" width="7" x="430" y="282"></rect>
+<rect fill="#dae2fd" height="40" rx="1" width="7" x="470" y="275"></rect>
+<rect fill="#dae2fd" height="34" rx="1" width="7" x="516" y="281"></rect>
+<rect fill="#dae2fd" height="27" rx="1" width="7" x="555" y="288"></rect>
+<rect fill="#dae2fd" height="33" rx="1" width="7" x="595" y="282"></rect>
+<rect fill="#dae2fd" height="20" rx="1" width="7" x="635" y="295"></rect>
+<rect fill="#dae2fd" height="37" rx="1" width="7" x="675" y="278"></rect>
+<rect fill="#dae2fd" height="29" rx="1" width="7" x="715" y="286"></rect>
+<rect fill="#dae2fd" height="23" rx="1" width="7" x="755" y="292"></rect>
+<rect fill="#dae2fd" height="35" rx="1" width="7" x="795" y="280"></rect>
+<rect fill="#82f5c1" height="47" rx="1" width="7" x="816" y="268"></rect>
+<rect fill="#dae2fd" height="26" rx="1" width="7" x="855" y="289"></rect>
+<rect fill="#dae2fd" height="31" rx="1" width="7" x="895" y="284"></rect>
+<rect fill="#dae2fd" height="35" rx="1" width="7" x="935" y="280"></rect>
+<rect fill="#4f46e5" height="40" opacity="0.7" rx="1" width="7" x="956" y="275"></rect>
+<!-- Dates Axis -->
+<text fill="#777587" font-family="'Inter'" font-size="10" x="80" y="330">Nov 2025</text>
+<text fill="#777587" font-family="'Inter'" font-size="10" x="240" y="330">Jan 2026</text>
+<text fill="#777587" font-family="'Inter'" font-size="10" x="400" y="330">Apr 2026</text>
+<text fill="#777587" font-family="'Inter'" font-size="10" x="550" y="330">Jun 2026</text>
+<text fill="#777587" font-family="'Inter'" font-size="10" x="700" y="330">Aug 2026</text>
+<text fill="#006c4a" font-family="'Inter'" font-size="10" font-weight="600" x="820" y="330">Oct (Q2)</text>
+<text fill="#3525cd" font-family="'Inter'" font-size="10" font-weight="700" text-anchor="end" x="960" y="330">Close: ₹12,815.40</text>
+</svg>
+<!-- Floating Tooltip: Quote -->
+<div class="absolute right-3 top-2 bg-surface-container-lowest p-2.5 rounded-lg shadow-md border border-surface-container-high flex items-center gap-2 whitespace-nowrap">
+<span class="w-2 h-2 rounded-full bg-indigo-500"></span>
+<div>
+<span class="block text-[10px] text-outline font-semibold uppercase tracking-wider">End-of-day data, delayed</span>
+<span class="text-sm font-bold text-on-surface">₹12,815.40</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Behavioral Events Section (Clean layout with proper margins) -->
+<div class="mt-6 pt-5 border-t border-surface-container-high/60">
+<div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+<div class="flex items-center gap-2">
+<span class="text-xs sm:text-sm font-bold text-on-surface">Primary Behavioral Events</span>
+<span class="text-outline text-xs">• Filtered by retail impact intensity</span>
+</div>
+<span class="text-xs text-on-surface-variant font-medium">Educational event log</span>
+</div>
+<!-- 2 Calm Educational Market Events with generous spacing -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="p-4 rounded-xl bg-surface-container-low border-l-4 border-emerald-500 flex flex-col justify-start">
+<div class="flex items-center justify-between gap-2 mb-2.5">
+<h4 class="text-sm font-bold text-emerald-800">Oct 18: Q2 Results Pullback</h4>
+<span class="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded font-bold whitespace-nowrap">Absorption</span>
+</div>
+<p class="text-xs sm:text-sm text-on-surface-variant leading-relaxed">
+              Institutional accumulation cleanly absorbed retail profit-taking without volatility expansion or emotional dispersion.
+            </p>
+</div>
+<div class="p-4 rounded-xl bg-surface-container-low border-l-4 border-indigo-500 flex flex-col justify-start">
+<div class="flex items-center justify-between gap-2 mb-2.5">
+<h4 class="text-sm font-bold text-indigo-700">Aug 8: Volume Consolidation</h4>
+<span class="bg-indigo-100 text-indigo-800 text-[10px] px-2 py-0.5 rounded font-bold whitespace-nowrap">Orderly Range</span>
+</div>
+<p class="text-xs sm:text-sm text-on-surface-variant leading-relaxed">
+              Steady turnover within historical ranges following quarterly delivery reports, showing disciplined long-term positioning.
+            </p>
+</div>
+</div>
+</div>
+</section>
+<!-- 4. Behavioral Takeaway Banner -->
+<section class="mb-8">
+<div class="bg-gradient-to-r from-indigo-50 via-indigo-50/70 to-surface-container-low rounded-2xl p-6 sm:p-7 border border-indigo-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
+<div class="flex items-start gap-4">
+<div class="w-12 h-12 rounded-xl bg-primary-container text-on-primary flex items-center justify-center shrink-0 shadow-sm">
+<span class="material-symbols-outlined text-[26px]">lightbulb</span>
+</div>
+<div class="flex flex-col gap-1">
+<h3 class="text-base sm:text-lg font-bold text-primary">Plain English Behavioral Takeaway</h3>
+<p class="text-sm sm:text-base text-on-surface font-medium leading-relaxed max-w-3xl">
+                Historical market records show that during previous periods when Maruti Suzuki recorded herd activity levels below 40, retail transaction volume remained balanced and price pullbacks historically stabilized within typical cycle durations. Past data illustrates how crowd participation patterns varied across market cycles, presented here strictly for behavioral study.
+              </p>
+</div>
+</div>
+<div class="shrink-0">
+<span class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-surface-container-lowest shadow-sm text-on-surface-variant text-xs font-semibold border border-surface-container-high whitespace-nowrap">
+<span class="material-symbols-outlined text-[16px] text-amber-700">info</span>
+              Educational insights • Not financial advice
+            </span>
+</div>
+</div>
+</section>
+<!-- 5. Detailed Behavioral Analysis & SIP Simulation -->
+<div class="space-y-8 mb-12">
+<!-- Detailed Behavioral Analysis -->
+<section class="bg-surface-container-lowest rounded-2xl shadow-sm border border-surface-container-high/60 p-6 md:p-8">
+<div class="flex flex-wrap items-center justify-between gap-2 border-b border-surface-container-high/60 pb-4 mb-6">
+<h3 class="text-lg sm:text-xl font-bold text-on-surface">Detailed Behavioral Analysis</h3>
+<span class="text-xs text-on-surface-variant font-medium">End-of-day data, delayed</span>
+</div>
+<!-- Analysis Filter Tabs - Updated to the 4 requested tabs -->
+<div class="flex items-center gap-2 bg-surface-container-low p-1.5 rounded-xl mb-6 overflow-x-auto border border-surface-container-high/40">
+<button class="px-4 py-2 rounded-lg text-xs sm:text-sm font-bold bg-surface-container-lowest text-primary shadow-sm whitespace-nowrap">Herd analysis</button>
+<button class="px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold text-on-surface-variant hover:text-on-surface whitespace-nowrap">Panic factors</button>
+<button class="px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold text-on-surface-variant hover:text-on-surface whitespace-nowrap">Missing best days</button>
+<button class="px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold text-on-surface-variant hover:text-on-surface whitespace-nowrap">SIP vs panic</button>
+</div>
+<!-- Active Tab Content: Herd analysis with retail crowd flow and behavioral patterns -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+<div class="bg-surface-container-low p-5 rounded-xl border border-surface-container-high/60 flex flex-col justify-between gap-4">
+<div>
+<h4 class="text-base font-bold text-on-surface">Retail Crowd Flow Dispersion</h4>
+<p class="text-xs sm:text-sm text-on-surface-variant mt-2 leading-relaxed">
+              Measures the degree to which trade clustering matches independent decision-making rather than crowd-following surges. Low dispersion suggests disciplined, non-reactive holding patterns.
+            </p>
+</div>
+<div class="mt-2 pt-3 border-t border-surface-container-high">
+<div class="flex justify-between text-xs font-semibold mb-1.5">
+<span class="text-on-surface-variant">Order Flow Independence</span>
+<span class="text-secondary font-bold">72% (Independent)</span>
+</div>
+<div class="w-full h-2.5 bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-secondary rounded-full" style="width: 72%;"></div>
+</div>
+</div>
+</div>
+<div class="bg-surface-container-low p-5 rounded-xl border border-surface-container-high/60 flex flex-col justify-between gap-4">
+<div>
+<h4 class="text-base font-bold text-on-surface">Chasing vs Value Accumulation</h4>
+<p class="text-xs sm:text-sm text-on-surface-variant mt-2 leading-relaxed">
+              Compares buy executions near local price highs versus measured accumulation during calm consolidation periods. Indicates whether participants are chasing momentum or accumulating steadily.
+            </p>
+</div>
+<div class="mt-2 pt-3 border-t border-surface-container-high">
+<div class="flex justify-between text-xs font-semibold mb-1.5">
+<span class="text-on-surface-variant">Steady Accumulation Index</span>
+<span class="text-primary font-bold">31 / 100 (Balanced)</span>
+</div>
+<div class="w-full h-2.5 bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full" style="width: 31%;"></div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- SIP vs Panic Exit Section -->
+<section class="bg-surface-container-lowest rounded-2xl shadow-sm border border-surface-container-high/60 p-6 md:p-8">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6">
+<div>
+<h3 class="text-lg sm:text-xl font-bold text-on-surface">SIP vs Panic Exit: The Cost of Emotion</h3>
+<p class="text-xs sm:text-sm text-on-surface-variant mt-0.5">Based on a ₹10,000 monthly Systematic Investment Plan over 5 years in Maruti Suzuki</p>
+</div>
+<span class="bg-indigo-100 text-indigo-900 text-xs font-bold px-3 py-1 rounded-full self-start sm:self-auto border border-indigo-200 whitespace-nowrap">5-year window</span>
+</div>
+<!-- Two Comparison Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
+<!-- Scenario A -->
+<div class="bg-surface-container-low p-6 rounded-2xl border-2 border-emerald-500/40 relative overflow-hidden flex flex-col justify-between gap-4 shadow-sm">
+<div>
+<div class="flex items-center justify-between mb-2">
+<span class="text-xs font-black text-secondary uppercase tracking-wider">Scenario A</span>
+<span class="bg-emerald-100 text-emerald-800 text-xs font-bold px-2.5 py-0.5 rounded-full whitespace-nowrap">Disciplined</span>
+</div>
+<h4 class="text-base sm:text-lg font-bold text-on-surface">Stayed Invested Through All Cycles</h4>
+<p class="text-xs sm:text-sm text-on-surface-variant mt-1.5 leading-relaxed">
+                  Continued regular monthly installments through dips, corrections, and volatile sessions.
+                </p>
+</div>
+<div>
+<span class="text-xs text-on-surface-variant font-medium">Final Portfolio Value</span>
+<div class="text-3xl sm:text-4xl font-black text-secondary tracking-tight mt-0.5">₹9.85 Lakhs</div>
+</div>
+<div class="flex items-center gap-2 text-secondary text-xs sm:text-sm font-semibold pt-2 border-t border-surface-container-high">
+<span class="material-symbols-outlined text-[18px]">verified</span>
+<span>100% completion of compounding cycles</span>
+</div>
+</div>
+<!-- Scenario B -->
+<div class="bg-surface-container-low p-6 rounded-2xl border-2 border-red-400/40 relative overflow-hidden flex flex-col justify-between gap-4 shadow-sm">
+<div>
+<div class="flex items-center justify-between mb-2">
+<span class="text-xs font-black text-red-600 uppercase tracking-wider">Scenario B</span>
+<span class="bg-red-100 text-red-800 text-xs font-bold px-2.5 py-0.5 rounded-full whitespace-nowrap">Paused in Dips</span>
+</div>
+<h4 class="text-base sm:text-lg font-bold text-on-surface">Stopped SIP During 10%+ Drops</h4>
+<p class="text-xs sm:text-sm text-on-surface-variant mt-1.5 leading-relaxed">
+                  Halted contributions during negative headlines, waiting to re-enter when market felt calm.
+                </p>
+</div>
+<div>
+<span class="text-xs text-on-surface-variant font-medium">Final Portfolio Value</span>
+<div class="text-3xl sm:text-4xl font-black text-on-surface tracking-tight mt-0.5">₹6.92 Lakhs</div>
+</div>
+<div class="flex items-center gap-2 text-red-600 text-xs sm:text-sm font-semibold pt-2 border-t border-surface-container-high">
+<span class="material-symbols-outlined text-[18px]">warning</span>
+<span>Missed strongest post-shakeout recovery days</span>
+</div>
+</div>
+</div>
+<!-- Calm Amber Callout Box for Wealth Difference -->
+<div class="bg-amber-50 border border-amber-300/80 p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+<div class="flex items-start sm:items-center gap-3.5">
+<div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0 border border-amber-300">
+<span class="material-symbols-outlined text-[22px]">calculate</span>
+</div>
+<div>
+<div class="flex items-center gap-2 flex-wrap mb-0.5">
+<span class="text-[11px] font-extrabold text-amber-900 uppercase tracking-wide">ESTIMATED IMPACT OF PANIC PAUSING</span>
+<span class="bg-amber-200 text-amber-900 text-[10px] font-bold px-2 py-0.5 rounded whitespace-nowrap">Simulation</span>
+</div>
+<p class="text-base sm:text-lg font-extrabold text-amber-950">
+                  ₹2.1 – ₹3.4 Lakhs Wealth Difference <span class="font-normal text-sm text-amber-900">per ₹10,000 monthly SIP</span>
+</p>
+<p class="text-xs text-amber-800 font-medium mt-0.5">Illustrative, based on historical simulation.</p>
+</div>
+</div>
+<div class="flex flex-col sm:items-end gap-1 shrink-0">
+<button class="text-xs font-bold text-amber-900 hover:text-amber-950 inline-flex items-center gap-1 group transition-colors" onclick="alert('Simulation Methodology: Rolling 5-year systematic monthly investments across historical market regimes. Scenario B assumes SIP pause after a &gt;10% drawdown with re-entry 6 months post-rebound.')">
+<span class="whitespace-nowrap">View simulation assumptions &amp; methodology</span>
+<span class="material-symbols-outlined text-[15px] group-hover:translate-x-0.5 transition-transform">arrow_forward</span>
+</button>
+<span class="text-[11px] text-amber-700/80 max-w-xs sm:text-right">Assumes historical 5-year rolling windows. Taxes and transaction fees excluded.</span>
+</div>
+</div>
+</section>
+</div>
+</div>
+</main>
+<!-- AI Copilot Floating Action Button (FAB) - Single Line Label -->
+<aside class="fixed bottom-6 right-6 z-40">
+<button class="flex items-center gap-2.5 bg-primary-container hover:bg-indigo-700 text-on-primary font-bold text-sm px-5 py-3.5 rounded-full shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 group whitespace-nowrap" id="openCopilotBtn">
+<span class="material-symbols-outlined text-[20px]">psychology</span>
+<span class="whitespace-nowrap">Ask Behavioral Copilot</span>
+</button>
+</aside>
+<!-- AI Copilot Slide-Over Drawer -->
+<div class="fixed inset-0 z-50 pointer-events-none transition-opacity duration-300 opacity-0" id="copilotDrawer">
+<!-- Backdrop -->
+<div class="absolute inset-0 bg-on-surface/30 backdrop-blur-sm pointer-events-auto" id="copilotBackdrop"></div>
+<!-- Drawer Panel -->
+<div class="absolute right-0 top-0 bottom-0 w-full max-w-md bg-surface-container-lowest shadow-2xl flex flex-col pointer-events-auto border-l border-surface-container-high transition-transform duration-300 translate-x-full" id="copilotPanel">
+<!-- Drawer Header -->
+<div class="p-5 border-b border-surface-container flex items-center justify-between bg-surface-container-low">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-xl bg-primary-container text-on-primary flex items-center justify-center shadow-sm">
+<span class="material-symbols-outlined text-[22px]">psychology</span>
+</div>
+<div>
+<h3 class="text-base font-bold text-on-surface flex items-center gap-2">
+              Behavioral Copilot
+              <span class="text-[10px] font-bold bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-md">MARUTI</span>
+</h3>
+<span class="text-xs text-on-surface-variant">Emotional Grounding &amp; Bias Checks</span>
+</div>
+</div>
+<button class="w-8 h-8 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors" id="closeCopilotBtn">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+</div>
+<!-- Drawer Content -->
+<div class="flex-1 overflow-y-auto p-5 space-y-5">
+<!-- Quick Sanity Checks -->
+<div>
+<span class="text-xs font-bold text-on-surface block mb-2 uppercase tracking-wide text-outline">Quick Sanity Checks</span>
+<div class="flex flex-col gap-2">
+<button class="text-left text-xs sm:text-sm p-3 rounded-xl bg-surface-container-low hover:bg-surface-container text-on-surface transition-colors flex items-center justify-between group border border-surface-container-high/60">
+<span>"Am I following the herd right now?"</span>
+<span class="material-symbols-outlined text-[16px] text-outline group-hover:text-primary transition-colors">arrow_forward</span>
+</button>
+<button class="text-left text-xs sm:text-sm p-3 rounded-xl bg-surface-container-low hover:bg-surface-container text-on-surface transition-colors flex items-center justify-between group border border-surface-container-high/60">
+<span>"Should I worry about Maruti's 28.4x P/E?"</span>
+<span class="material-symbols-outlined text-[16px] text-outline group-hover:text-primary transition-colors">arrow_forward</span>
+</button>
+<button class="text-left text-xs sm:text-sm p-3 rounded-xl bg-surface-container-low hover:bg-surface-container text-on-surface transition-colors flex items-center justify-between group border border-surface-container-high/60">
+<span>"Explain this setup in simple terms"</span>
+<span class="material-symbols-outlined text-[16px] text-outline group-hover:text-primary transition-colors">arrow_forward</span>
+</button>
+</div>
+</div>
+<!-- Chat History -->
+<div class="space-y-3 pt-2">
+<!-- User bubble -->
+<div class="flex justify-end">
+<div class="bg-surface-container-high text-on-surface px-4 py-2.5 rounded-2xl rounded-tr-none max-w-[85%] text-xs sm:text-sm leading-relaxed">
+              Is now a panic moment to sell Maruti?
+            </div>
+</div>
+<!-- AI response -->
+<div class="flex items-start gap-2.5">
+<div class="w-7 h-7 rounded-full bg-primary-container text-on-primary flex items-center justify-center shrink-0 mt-0.5 text-xs font-bold">
+<span class="material-symbols-outlined text-[14px]">psychology</span>
+</div>
+<div class="bg-surface-container-low text-on-surface p-4 rounded-2xl rounded-tl-none text-xs sm:text-sm shadow-sm space-y-2.5 leading-relaxed border border-surface-container-high/60">
+<p>Looking at current metrics, <strong>herd activity is at 34% (Calm)</strong>. There are no signs of abnormal distress selling or forced institutional liquidations.</p>
+<div class="bg-surface-container-lowest p-2.5 rounded-lg text-xs text-secondary font-bold flex items-center gap-1.5 border border-emerald-200">
+<span class="material-symbols-outlined text-[16px]">check_circle</span>
+<span>In past simulations, staying invested came out ahead in roughly 7 to 9 of 10 cases.</span>
+</div>
+<p class="text-on-surface-variant text-xs">Staying invested historically beats reacting to short-term pullbacks.</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Drawer Input Footer -->
+<div class="p-4 border-t border-surface-container-high bg-surface-container-lowest">
+<div class="relative flex items-center mb-2">
+<input class="w-full bg-surface-container-low text-on-surface placeholder:text-outline text-xs sm:text-sm px-4 py-3 rounded-xl outline-none focus:ring-2 focus:ring-primary pr-10 border border-surface-container-high" placeholder="Ask Copilot about biases or data..." type="text"/>
+<button class="absolute right-2.5 text-primary hover:text-indigo-800 p-1">
+<span class="material-symbols-outlined text-[20px]">send</span>
+</button>
+</div>
+<div class="flex items-center gap-1.5 text-outline text-[11px]">
+<span class="material-symbols-outlined text-[14px]">shield</span>
+<span>Educational tool • Does not provide investment advice.</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer with Verbatim Compliance Statement -->
+<footer class="w-full bg-surface-container-lowest border-t border-surface-container-high/80 py-8 mt-auto">
+<div class="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-4">
+<div class="flex items-center gap-2.5">
+<div class="w-6 h-6 rounded-md bg-primary-container text-on-primary flex items-center justify-center text-xs">
+<span class="material-symbols-outlined text-[16px]">psychology</span>
+</div>
+<span class="font-headline text-base font-bold text-on-surface">SheepOrSleep</span>
+</div>
+<p class="text-xs text-on-surface-variant text-center md:text-left font-medium">
+        SheepOrSleep is an educational tool and does not provide investment advice.
+      </p>
+<div class="flex items-center gap-5 text-xs text-on-surface-variant font-medium">
+<a class="hover:text-primary transition-colors" href="#">Terms</a>
+<a class="hover:text-primary transition-colors" href="#">Privacy</a>
+<a class="hover:text-primary transition-colors" href="#">Compliance Disclaimers</a>
+</div>
+</div>
+</footer>
+<!-- Interactivity Scripts -->
+<script>
+    // Copilot Drawer Open / Close
+    const openCopilotBtn = document.getElementById('openCopilotBtn');
+    const closeCopilotBtn = document.getElementById('closeCopilotBtn');
+    const copilotDrawer = document.getElementById('copilotDrawer');
+    const copilotBackdrop = document.getElementById('copilotBackdrop');
+    const copilotPanel = document.getElementById('copilotPanel');
+
+    function openDrawer() {
+      copilotDrawer.classList.remove('opacity-0', 'pointer-events-none');
+      copilotPanel.classList.remove('translate-x-full');
+    }
+
+    function closeDrawer() {
+      copilotPanel.classList.add('translate-x-full');
+      copilotDrawer.classList.add('opacity-0', 'pointer-events-none');
+    }
+
+    if (openCopilotBtn) openCopilotBtn.addEventListener('click', openDrawer);
+    if (closeCopilotBtn) closeCopilotBtn.addEventListener('click', closeDrawer);
+    if (copilotBackdrop) copilotBackdrop.addEventListener('click', closeDrawer);
+  </script>
+</body></html>

@@ -34,7 +34,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import asyncio
+import logging
 from fastapi import FastAPI, HTTPException, Depends
+
+logger = logging.getLogger("sheep_or_sleep.api")
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
 
@@ -530,18 +533,41 @@ Help retail investors overcome biases like herd mentality, panic selling, and lo
 Always use ₹ (INR). Never give specific buy/sell recommendations. Encourage SIP discipline.
 Keep responses concise with clear formatting."""
 
-        messages = [{"role": "system", "content": system}] + [
-            {"role": m.role, "content": m.content} for m in req.messages
-        ]
-        response = await asyncio.to_thread(
-            client.chat.completions.create,
-            model=GROQ_MODEL,
-            messages=messages,
-            temperature=0.3,
-            max_tokens=2048,
-        )
+        # Sanitize messages: Groq requires conversations to start with a user message
+        cleaned_messages = []
+        for m in req.messages:
+            if not cleaned_messages and m.role == "assistant":
+                continue
+            cleaned_messages.append({"role": m.role, "content": m.content})
+
+        if not cleaned_messages:
+            return {
+                "response": "Hello! I am your Behavioral Finance Copilot. How can I help you evaluate emotional biases, herding, or panic selling risks today?"
+            }
+
+        messages = [{"role": "system", "content": system}] + cleaned_messages
+
+        try:
+            response = await asyncio.to_thread(
+                client.chat.completions.create,
+                model=GROQ_MODEL,
+                messages=messages,
+                temperature=0.3,
+                max_tokens=2048,
+            )
+        except Exception as primary_err:
+            logger.warning("Primary Groq model %s failed (%s); trying fallback llama-3.1-8b-instant...", GROQ_MODEL, primary_err)
+            response = await asyncio.to_thread(
+                client.chat.completions.create,
+                model="llama-3.1-8b-instant",
+                messages=messages,
+                temperature=0.3,
+                max_tokens=2048,
+            )
+
         return {"response": response.choices[0].message.content}
-    except Exception:
+    except Exception as exc:
+        logger.error("Chat completion error: %s", exc, exc_info=True)
         raise HTTPException(
             status_code=500,
             detail="An error occurred while processing the chat request.",

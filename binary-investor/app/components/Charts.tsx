@@ -4,7 +4,7 @@ import {
   ComposedChart, Bar, Line, Area, AreaChart,
   BarChart, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell, Legend, ReferenceLine,
-  ScatterChart, Scatter,
+  Scatter,
 } from "recharts";
 import type {
   PricePoint, CSADPoint, VolumePoint,
@@ -20,14 +20,28 @@ const GRID = "rgba(30,20,10,0.05)";
 const AMBER = "#D97706";
 
 /* ─── Shared Tooltip ──────────────────────────────── */
-function ChartTooltip({ active, payload, label }: any) {
+interface TooltipPayloadItem {
+  name?: string;
+  value?: number | string;
+  color?: string;
+  fill?: string;
+  stroke?: string;
+}
+
+interface ChartTooltipProps {
+  active?: boolean;
+  payload?: TooltipPayloadItem[];
+  label?: string;
+}
+
+function ChartTooltip({ active, payload, label }: ChartTooltipProps) {
   if (!active || !payload?.length) return null;
   return (
     <div className="custom-tooltip" style={{ fontFamily: "var(--font-body)" }}>
       <p style={{ fontSize: 11, fontWeight: 600, color: "var(--text)", marginBottom: 6, fontFamily: "var(--font-mono)" }}>
         {label}
       </p>
-      {payload.map((p: any, i: number) => (
+      {payload.map((p: TooltipPayloadItem, i: number) => (
         <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
           <span style={{
             display: "inline-block", width: 8, height: 8, borderRadius: 2,
@@ -50,46 +64,6 @@ function ChartTooltip({ active, payload, label }: any) {
 /* ═══════════════════════════════════════════════════ */
 /* Dynamic Candlestick Chart                           */
 /* ═══════════════════════════════════════════════════ */
-
-// Custom candlestick shape rendered via SVG
-function CandlestickShape(props: any) {
-  const { x, y, width, height, payload } = props;
-  if (!payload) return null;
-
-  const { open, close, high, low } = payload;
-  const isUp = close >= open;
-  const color = isUp ? UP : DOWN;
-
-  // We need to know the chart's Y scale to draw correctly
-  // This shape receives plotted coordinates, so we use them directly
-  // The bar represents the body; we need to draw wicks separately
-  // Since recharts gives us y/height for the bar range we specify,
-  // we handle this with custom computed values passed as payload
-
-  if (!payload._yScale) return null;
-  const yScale = payload._yScale;
-
-  const bodyTop = yScale(Math.max(open, close));
-  const bodyBottom = yScale(Math.min(open, close));
-  const bodyH = Math.max(bodyBottom - bodyTop, 1);
-  const wickX = x + width / 2;
-  const wickTop = yScale(high);
-  const wickBottom = yScale(low);
-
-  return (
-    <g>
-      {/* Wick */}
-      <line x1={wickX} y1={wickTop} x2={wickX} y2={wickBottom}
-        stroke={color} strokeWidth={1.5} strokeOpacity={0.7} />
-      {/* Body */}
-      <rect
-        x={x + 1} y={bodyTop} width={Math.max(width - 2, 2)} height={bodyH}
-        fill={color} fillOpacity={isUp ? 0.85 : 0.9}
-        rx={2} ry={2}
-      />
-    </g>
-  );
-}
 
 export function CandlestickChart({ data }: { data: PricePoint[] }) {
   if (!data || data.length === 0) return (

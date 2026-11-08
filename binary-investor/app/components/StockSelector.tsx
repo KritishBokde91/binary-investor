@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useRef, useEffect } from "react";
-import { Search, ChevronDown, X, TrendingUp } from "lucide-react";
+import { Search, ChevronDown, X } from "lucide-react";
 import { STOCK_UNIVERSE } from "@/app/lib/stockUniverse";
 import type { StockInfo } from "@/app/lib/types";
 

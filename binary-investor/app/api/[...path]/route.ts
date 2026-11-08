@@ -37,14 +37,15 @@ async function proxy(request: NextRequest, paramsPromise: Promise<{ path: string
       statusText: res.statusText,
       headers: responseHeaders,
     });
-  } catch (err: any) {
-    console.error(`[API Proxy] Failed to proxy to ${targetUrl}:`, err.message);
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    console.error(`[API Proxy] Failed to proxy to ${targetUrl}:`, errorMsg);
     return NextResponse.json(
       {
         status: "unavailable",
         detail: {
           status: "unavailable",
-          reason: `Cannot reach backend API service at ${backendUrl} (${err.message})`,
+          reason: `Cannot reach backend API service at ${backendUrl} (${errorMsg})`,
         },
       },
       { status: 503 }

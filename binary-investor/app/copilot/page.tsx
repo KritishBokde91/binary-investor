@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import {
-  Send, Sparkles, Loader2, ArrowLeft, MessageCircle, RotateCcw,
+  Send, Sparkles, Loader2, ArrowLeft, RotateCcw,
 } from "lucide-react";
 import type { ChatMessage } from "@/app/lib/types";
 import Link from "next/link";
