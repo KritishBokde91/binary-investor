@@ -6,28 +6,66 @@ Exposes all analytics as REST API for the Next.js frontend.
 from __future__ import annotations
 
 import os
+import sys
+import re
 import json
+from pathlib import Path
 import numpy as np
 import pandas as pd
 import yfinance as yf
-from datetime import datetime, timedelta
-from typing import Optional
+from datetime import datetime, timezone, timedelta
+from typing import Optional, Literal
 from scipy import stats
+
+# Ensure src is on sys.path
+_SRC_DIR = str(Path(__file__).resolve().parent / "src")
+if _SRC_DIR not in sys.path:
+    sys.path.insert(0, _SRC_DIR)
+
+from sheep_or_sleep.analytics import (
+    compute_behavior_gap as compute_behavior_gap_analytics,
+    compute_missing_days as compute_missing_days_analytics,
+    compute_cck_herding,
+    compute_panic_score,
+    simulate_sip_vs_panic as simulate_sip_vs_panic_analytics,
+)
 
 from dotenv import load_dotenv
 load_dotenv()
 
-from fastapi import FastAPI, HTTPException
+import asyncio
+import logging
+from fastapi import FastAPI, HTTPException, Depends
+
+logger = logging.getLogger("sheep_or_sleep.api")
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
+
+from sheep_or_sleep.cache.service import CacheService
+from sheep_or_sleep.api.auth import get_auth_user
+from sheep_or_sleep.api.rate_limiter import check_rate_limit
+from sheep_or_sleep.api.schemas import (
+    LivenessResponse,
+    ReadinessResponse,
+    MetricsResponse,
+    StockListResponse,
+    QuoteResponse,
+    AnalyzeResponse,
+    ChatResponse,
+    HealthResponse,
+)
 
 # ─── App ──────────────────────────────────────────────
 app = FastAPI(title="SheepOrSleep API", version="1.0.0")
+cache_service = CacheService()
+
+raw_origins = os.getenv("ALLOWED_ORIGINS", os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000"))
+allowed_origins = [orig.strip() for orig in raw_origins.split(",") if orig.strip()]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=allowed_origins,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -116,6 +154,9 @@ STOCK_UNIVERSE = [
     {"symbol": "AMBUJACEM.NS", "name": "Ambuja Cements",             "sector": "Cement",            "index": "NIFTY NEXT 50"},
 ]
 
+KNOWN_SYMBOLS = {s["symbol"] for s in STOCK_UNIVERSE}
+SYMBOL_PATTERN = re.compile(r"^[A-Z0-9&.-]{1,20}$")
+
 
 def get_sector_symbols(sector: str) -> list[str]:
     return [s["symbol"] for s in STOCK_UNIVERSE if s["sector"] == sector]
@@ -174,371 +215,316 @@ def fetch_quote(symbol: str) -> dict:
 def compute_herding(symbol: str, period_days: int = 365) -> dict:
     stock_info = next((s for s in STOCK_UNIVERSE if s["symbol"] == symbol), None)
     if not stock_info:
-        return {"herdingDetected": False, "intensity": 0, "gamma2": 0, "pValue": 1,
-                "rSquared": 0, "csadData": [], "sector": "Unknown", "error": "Stock not found"}
+        return {
+            "herdingDetected": False,
+            "intensity": 0.0,
+            "gamma2": 0.0,
+            "pValue": 1.0,
+            "rSquared": 0.0,
+            "csadData": [],
+            "sector": "Unknown",
+            "error": "Stock not found",
+        }
 
     sector = stock_info["sector"]
     sector_symbols = get_sector_symbols(sector)
-    if len(sector_symbols) < 3:
-        return {"herdingDetected": False, "intensity": 0, "gamma2": 0, "pValue": 1,
-                "rSquared": 0, "csadData": [], "sector": sector, "error": "Need ≥3 stocks in sector"}
-
     returns_dict = {}
     for sym in sector_symbols:
         df = fetch_historical(sym, period_days)
         if not df.empty and "Returns" in df.columns:
             returns_dict[sym] = df["Returns"]
 
-    if len(returns_dict) < 3:
-        return {"herdingDetected": False, "intensity": 0, "gamma2": 0, "pValue": 1,
-                "rSquared": 0, "csadData": [], "sector": sector, "error": "Insufficient data"}
-
-    returns_df = pd.DataFrame(returns_dict).dropna()
-    market_return = returns_df.mean(axis=1)
-    csad = returns_df.sub(market_return, axis=0).abs().mean(axis=1)
-    abs_mkt = market_return.abs()
-    mkt_sq = market_return ** 2
-
-    y = csad.values
-    X = np.column_stack([np.ones(len(y)), abs_mkt.values, mkt_sq.values])
-
-    try:
-        beta, _, _, _ = np.linalg.lstsq(X, y, rcond=None)
-        alpha, gamma1, gamma2 = beta
-        y_pred = X @ beta
-        ss_res = np.sum((y - y_pred) ** 2)
-        ss_tot = np.sum((y - np.mean(y)) ** 2)
-        r_sq = 1 - ss_res / ss_tot if ss_tot > 0 else 0
-        n, k = len(y), 3
-        mse = ss_res / (n - k)
-        try:
-            cov = mse * np.linalg.inv(X.T @ X)
-            se = np.sqrt(np.diag(cov))
-        except Exception:
-            se = np.array([0, 0, 0])
-        t_stat = gamma2 / se[2] if se[2] > 0 else 0
-        p_val = 2 * (1 - stats.t.cdf(abs(t_stat), df=n - k))
-        herding = gamma2 < 0 and p_val < 0.05
-        intensity = min(100, abs(gamma2 / max(abs(gamma1), 1e-6)) * 100) if herding else max(0, min(20, abs(gamma2) * 1000))
-
-        # build scatter data for chart (sample 200 points max)
-        indices = np.linspace(0, len(abs_mkt) - 1, min(200, len(abs_mkt)), dtype=int)
-        csad_data = [
-            {"absReturn": round(float(abs_mkt.iloc[i]), 6),
-             "csad": round(float(csad.iloc[i]), 6),
-             "mktReturn": round(float(market_return.iloc[i]), 6),
-             "fitted": round(float(y_pred[i]), 6)}
-            for i in indices
-        ]
-
-        return {
-            "sector": sector,
-            "nStocks": len(returns_dict),
-            "herdingDetected": bool(herding),
-            "intensity": round(float(intensity), 1),
-            "gamma2": round(float(gamma2), 6),
-            "gamma1": round(float(gamma1), 6),
-            "alpha": round(float(alpha), 6),
-            "pValue": round(float(p_val), 6),
-            "tStat": round(float(t_stat), 4),
-            "rSquared": round(float(r_sq), 4),
-            "observations": n,
-            "csadData": csad_data,
-        }
-    except Exception as e:
-        return {"herdingDetected": False, "intensity": 0, "gamma2": 0, "pValue": 1,
-                "rSquared": 0, "csadData": [], "sector": sector, "error": str(e)}
+    return compute_cck_herding(returns_dict, sector=sector)
 
 
 # ─── Analytics: Panic ─────────────────────────────────
 def compute_panic(symbol: str, period_days: int = 90) -> dict:
     df = fetch_historical(symbol, period_days)
-    if df.empty or len(df) < 21:
-        return {"panicScore": 0, "level": "NO DATA", "factors": {}, "volumeData": []}
-
-    # Technical indicators
-    df["SMA_20"] = df["Close"].rolling(20).mean()
-    df["Vol_SMA_20"] = df["Volume"].rolling(20).mean()
-    df["Vol_Zscore"] = (df["Volume"] - df["Vol_SMA_20"]) / df["Volume"].rolling(20).std().replace(0, np.nan)
-    df["Volatility"] = df["Returns"].rolling(20).std() * np.sqrt(252) * 100
-
-    # Factor 1: Volume anomalies
-    panic_vol = ((df["Vol_Zscore"] > 2) & (df["Returns"] < -0.005)).sum()
-    score_vol = min(100, float(panic_vol) / max(len(df), 1) * 500)
-
-    # Factor 2: Delivery pressure proxy
-    df["Range"] = (df["High"] - df["Low"]) / df["Close"] * 100
-    avg_range = df["Range"].rolling(20).mean()
-    spec = (df["Range"] / avg_range.replace(0, np.nan)).clip(0, 5)
-    est_del = np.clip(100 - spec * 20, 10, 90)
-    low_del = (est_del < 30).sum()
-    score_del = min(100, float(low_del) / max(len(df), 1) * 200)
-
-    # Factor 3: Price-volume divergence
-    price_mom = df["Close"].pct_change(5)
-    vol_mom = df["Volume"].pct_change(5)
-    div_count = ((price_mom < -0.03) & (vol_mom > 0.3)).sum()
-    score_div = min(100, float(div_count) / max(len(df), 1) * 500)
-
-    # Factor 4: Drawdown
-    peak = df["Close"].expanding().max()
-    dd = (df["Close"] / peak - 1) * 100
-    current_dd = abs(float(dd.iloc[-1]))
-    score_dd = min(100, current_dd * 5)
-
-    # Factor 5: Volatility
-    current_vol = float(df["Volatility"].dropna().iloc[-1]) if not df["Volatility"].dropna().empty else 0
-    avg_vol = float(df["Volatility"].dropna().mean()) if not df["Volatility"].dropna().empty else 1
-    score_vola = min(100, max(0, (current_vol / max(avg_vol, 1) - 1) * 100))
-
-    panic_score = round(score_vol * 0.30 + score_del * 0.20 + score_div * 0.25 +
-                        score_dd * 0.15 + score_vola * 0.10, 1)
-    panic_score = min(100, max(0, panic_score))
-
-    if panic_score >= 70: level = "EXTREME PANIC"
-    elif panic_score >= 50: level = "HIGH PANIC"
-    elif panic_score >= 30: level = "MODERATE"
-    elif panic_score >= 10: level = "LOW"
-    else: level = "CALM"
-
-    # volume chart data (last 60 points)
-    vol_df = df.tail(60)
-    volume_data = [
-        {"date": d.strftime("%b %d"),
-         "volume": int(row["Volume"]),
-         "zscore": round(float(row["Vol_Zscore"]), 2) if pd.notna(row["Vol_Zscore"]) else 0,
-         "returns": round(float(row["Returns"]) * 100, 2),
-         "isPanic": bool(row["Vol_Zscore"] > 2 and row["Returns"] < -0.005) if pd.notna(row["Vol_Zscore"]) else False}
-        for d, row in vol_df.iterrows()
-    ]
-
-    return {
-        "panicScore": panic_score,
-        "level": level,
-        "factors": {
-            "volumeAnomaly": round(score_vol, 1),
-            "deliveryPressure": round(score_del, 1),
-            "priceVolDivergence": round(score_div, 1),
-            "drawdownSeverity": round(score_dd, 1),
-            "volatilityRegime": round(score_vola, 1),
-        },
-        "details": {
-            "currentDrawdown": round(current_dd, 2),
-            "currentVolatility": round(current_vol, 2),
-            "avgVolatility": round(avg_vol, 2),
-        },
-        "volumeData": volume_data,
-    }
+    return compute_panic_score(df)
 
 
 # ─── Analytics: Behavior Gap ─────────────────────────
 def compute_behavior_gap(symbol: str, period_years: int = 5) -> dict:
     df = fetch_historical(symbol, period_years * 365)
-    if df.empty or len(df) < 100:
-        return {"investmentCagr": 0, "investorCagr": 0, "behaviorGap": 0, "gapInterpretation": "Insufficient data"}
-
-    bh_return = (df["Close"].iloc[-1] / df["Close"].iloc[0] - 1) * 100
-    n_years = len(df) / 252
-    bh_cagr = ((df["Close"].iloc[-1] / df["Close"].iloc[0]) ** (1 / max(n_years, 0.5)) - 1) * 100
-
-    vol_normalized = df["Volume"] / df["Volume"].mean()
-    price_normalized = (df["Close"] - df["Close"].min()) / (df["Close"].max() - df["Close"].min())
-    corr = float(vol_normalized.corr(price_normalized))
-    gap = max(0, corr * bh_cagr * 0.4)
-    investor_cagr = bh_cagr - gap
-
-    if gap > 3: interp = "Large gap — investors are buying high and selling low"
-    elif gap > 1: interp = "Moderate gap — some emotional trading detected"
-    else: interp = "Small gap — relatively rational trading behavior"
-
-    return {
-        "investmentReturn": round(bh_return, 2),
-        "investmentCagr": round(bh_cagr, 2),
-        "investorCagr": round(investor_cagr, 2),
-        "behaviorGap": round(gap, 2),
-        "periodYears": round(n_years, 1),
-        "gapInterpretation": interp,
-    }
+    return compute_behavior_gap_analytics(df)
 
 
-def compute_missing_days(symbol: str, period_years: int = 10, initial: float = 100000) -> list[dict]:
+def compute_missing_days(symbol: str, period_years: int = 10, initial: float = 100000.0) -> list[dict]:
     df = fetch_historical(symbol, period_years * 365)
-    if df.empty or len(df) < 100:
-        return []
-    daily_returns = df["Returns"].values
-    scenarios = [0, 5, 10, 15, 20, 30]
-    results = []
-    for miss_n in scenarios:
-        modified = daily_returns.copy()
-        if miss_n > 0:
-            top = np.argsort(daily_returns)[::-1][:miss_n]
-            for idx in top:
-                modified[idx] = 0
-        final = initial * np.prod(1 + modified)
-        total_ret = (final / initial - 1) * 100
-        cagr = ((final / initial) ** (365 / len(daily_returns)) - 1) * 100
-        bh_final = initial * np.prod(1 + daily_returns) if miss_n > 0 else final
-        results.append({
-            "scenario": f"Missing {miss_n} best days" if miss_n > 0 else "Fully invested",
-            "finalValue": round(float(final), 0),
-            "totalReturn": round(float(total_ret), 1),
-            "cagr": round(float(cagr), 2),
-            "reduction": round(float((bh_final - final) / bh_final * 100), 1) if miss_n > 0 else 0,
-        })
-    return results
+    return compute_missing_days_analytics(df, initial=initial)
 
 
 # ─── Analytics: Monte Carlo ───────────────────────────
-def simulate_sip_vs_panic(symbol: str, years: int = 10, sip: float = 10000, n_sims: int = 500) -> dict:
+def simulate_sip_vs_panic(symbol: str, years: int = 10, sip: float = 10000.0, n_sims: int = 500) -> dict:
     df = fetch_historical(symbol, min(years, 5) * 365)
     if df.empty or len(df) < 50:
         mean_r, std_r = 0.0005, 0.015
     else:
         mean_r = float(df["Returns"].mean())
         std_r = float(df["Returns"].std())
-
-    trading_days = 252 * years
-    monthly = 21
-    sip_results, panic_results = [], []
-
-    for _ in range(n_sims):
-        sim = np.random.normal(mean_r, std_r, trading_days)
-        # SIP
-        units, price = 0.0, 100.0
-        for d in range(trading_days):
-            price *= (1 + sim[d]); price = max(price, 0.01)
-            if d % monthly == 0: units += sip / price
-        sip_results.append(units * price)
-        # Panic
-        units, cash, price, peak = 0.0, 0.0, 100.0, 100.0
-        in_mkt, wait = True, 0
-        for d in range(trading_days):
-            price *= (1 + sim[d]); price = max(price, 0.01)
-            if in_mkt:
-                peak = max(peak, price)
-                if (price - peak) / peak <= -0.10:
-                    cash += units * price; units = 0; in_mkt = False; wait = 90
-                if d % monthly == 0: units += sip / price
-            else:
-                wait -= 1
-                if d % monthly == 0: cash += sip
-                if wait <= 0:
-                    in_mkt = True; peak = price; units += cash / price; cash = 0
-        panic_results.append(units * price + cash)
-
-    sip_arr, panic_arr = np.array(sip_results), np.array(panic_results)
-    total_invested = sip * (trading_days // monthly)
-
-    # build histogram data
-    all_vals = np.concatenate([sip_arr, panic_arr])
-    bin_min, bin_max = float(np.min(all_vals)), float(np.max(all_vals))
-    n_bins = 30
-    bin_edges = np.linspace(bin_min, bin_max, n_bins + 1)
-    sip_hist, _ = np.histogram(sip_arr, bins=bin_edges)
-    panic_hist, _ = np.histogram(panic_arr, bins=bin_edges)
-    histogram = [
-        {"binStart": round(float(bin_edges[i]), 0),
-         "binEnd": round(float(bin_edges[i + 1]), 0),
-         "sip": int(sip_hist[i]),
-         "panic": int(panic_hist[i])}
-        for i in range(n_bins)
-    ]
-
-    return {
-        "totalInvested": round(float(total_invested), 0),
-        "years": years,
-        "nSimulations": n_sims,
-        "sip": {
-            "mean": round(float(np.mean(sip_arr)), 0),
-            "median": round(float(np.median(sip_arr)), 0),
-            "p10": round(float(np.percentile(sip_arr, 10)), 0),
-            "p90": round(float(np.percentile(sip_arr, 90)), 0),
-        },
-        "panic": {
-            "mean": round(float(np.mean(panic_arr)), 0),
-            "median": round(float(np.median(panic_arr)), 0),
-            "p10": round(float(np.percentile(panic_arr, 10)), 0),
-            "p90": round(float(np.percentile(panic_arr, 90)), 0),
-        },
-        "costOfPanic": {
-            "meanLoss": round(float(np.mean(sip_arr) - np.mean(panic_arr)), 0),
-            "pctLoss": round(float((np.mean(sip_arr) - np.mean(panic_arr)) / max(np.mean(sip_arr), 1) * 100), 1),
-            "winRate": round(float((sip_arr > panic_arr).sum() / len(sip_arr) * 100), 1),
-        },
-        "histogram": histogram,
-    }
+    return simulate_sip_vs_panic_analytics(
+        mean_r=mean_r,
+        std_r=std_r,
+        years=years,
+        sip=sip,
+        n_sims=n_sims,
+    )
 
 
 # ─── Analytics: Price chart ───────────────────────────
 def get_price_chart(symbol: str, period_days: int = 365) -> list[dict]:
-    df = fetch_historical(symbol, period_days)
-    if df.empty:
+    try:
+        df = fetch_historical(symbol, period_days)
+        if df.empty:
+            return []
+        # sample to ~120 points
+        step = max(1, len(df) // 120)
+        sampled = df.iloc[::step]
+        res = []
+        for d, row in sampled.iterrows():
+            d_str = d.strftime("%b %d, %Y") if hasattr(d, "strftime") else str(d)
+            res.append({
+                "date": d_str,
+                "open": round(float(row["Open"]), 2) if pd.notna(row.get("Open")) else 0.0,
+                "high": round(float(row["High"]), 2) if pd.notna(row.get("High")) else 0.0,
+                "low": round(float(row["Low"]), 2) if pd.notna(row.get("Low")) else 0.0,
+                "close": round(float(row["Close"]), 2) if pd.notna(row.get("Close")) else 0.0,
+                "volume": int(row["Volume"]) if pd.notna(row.get("Volume")) else 0,
+            })
+        return res
+    except Exception:
         return []
-    # sample to ~120 points
-    step = max(1, len(df) // 120)
-    sampled = df.iloc[::step]
-    return [
-        {"date": d.strftime("%b %d, %Y"),
-         "open": round(float(row["Open"]), 2),
-         "high": round(float(row["High"]), 2),
-         "low": round(float(row["Low"]), 2),
-         "close": round(float(row["Close"]), 2),
-         "volume": int(row["Volume"])}
-        for d, row in sampled.iterrows()
-    ]
+
+
+# ─── System Readiness ─────────────────────────────────
+
+async def check_system_readiness() -> dict[str, str]:
+    pg_status = "ok"
+    redis_status = "ok"
+
+    # Check Postgres
+    try:
+        from sheep_or_sleep.db.base import get_async_engine
+        from sqlalchemy import text
+        engine = get_async_engine()
+        async with engine.connect() as conn:
+            await asyncio.wait_for(conn.execute(text("SELECT 1")), timeout=2.0)
+    except Exception:
+        pg_status = "down"
+
+    # Check Redis
+    try:
+        from sheep_or_sleep.cache.client import get_redis_client
+        redis_client = get_redis_client()
+        await asyncio.wait_for(redis_client.ping(), timeout=2.0)
+    except Exception:
+        redis_status = "down"
+
+    overall = "ok" if (pg_status == "ok" and redis_status == "ok") else "down"
+    return {
+        "status": overall,
+        "postgres": pg_status,
+        "redis": redis_status,
+    }
+
+
+# ─── Probes & Observability ───────────────────────────
+
+@app.get("/healthz", response_model=LivenessResponse)
+async def healthz():
+    return {"status": "ok"}
+
+
+@app.get("/readyz", response_model=ReadinessResponse)
+async def readyz():
+    res = await check_system_readiness()
+    if res["status"] != "ok":
+        raise HTTPException(status_code=503, detail=res)
+    return res
+
+
+@app.get("/api/metrics", response_model=MetricsResponse)
+async def api_metrics():
+    return await cache_service.get_metrics()
 
 
 # ─── API Routes ──────────────────────────────────────
 
-@app.get("/api/stocks")
-def list_stocks():
+@app.get("/api/stocks", response_model=StockListResponse)
+async def list_stocks():
     return {"stocks": STOCK_UNIVERSE}
 
 
-@app.get("/api/quote")
-def get_quote(symbol: str):
-    return fetch_quote(symbol)
+@app.get("/api/quote", response_model=QuoteResponse)
+async def get_quote(
+    symbol: str,
+    auth: str = Depends(get_auth_user),
+    _rate: None = Depends(check_rate_limit),
+):
+    if not SYMBOL_PATTERN.match(symbol) or symbol not in KNOWN_SYMBOLS:
+        raise HTTPException(status_code=400, detail=f"Invalid or unknown symbol: {symbol}")
+
+    async def _fetch():
+        return fetch_quote(symbol)
+
+    cached_quote = await cache_service.get_or_compute(
+        f"quote:{symbol}",
+        _fetch,
+        ttl_sec=60,
+        stale_ttl_sec=300,
+    )
+    return cached_quote
 
 
 class AnalyzeRequest(BaseModel):
     symbol: str
-    periodDays: int = 365
-    sipAmount: float = 10000
-    simYears: int = 10
-    nSimulations: int = 500
+    periodDays: int = Field(365, ge=90, le=3650)
+    sipAmount: float = Field(10000, gt=0, le=1000000)
+    simYears: int = Field(10, ge=1, le=30)
+    nSimulations: int = Field(500, ge=100, le=20000)
+
+    @field_validator("symbol")
+    @classmethod
+    def validate_symbol(cls, v: str) -> str:
+        if not SYMBOL_PATTERN.match(v):
+            raise ValueError(f"Invalid symbol format: {v}")
+        if v not in KNOWN_SYMBOLS:
+            raise ValueError(f"Unknown symbol: {v}. Must be in supported stock universe.")
+        return v
 
 
-@app.post("/api/analyze")
-def analyze(req: AnalyzeRequest):
+@app.post("/api/analyze", response_model=AnalyzeResponse)
+async def analyze(
+    req: AnalyzeRequest,
+    auth: str = Depends(get_auth_user),
+    _rate: None = Depends(check_rate_limit),
+):
     """One-tap: run ALL analytics for a stock and return everything."""
-    quote = fetch_quote(req.symbol)
-    price_chart = get_price_chart(req.symbol, req.periodDays)
-    herding = compute_herding(req.symbol, req.periodDays)
-    panic = compute_panic(req.symbol, min(req.periodDays, 180))
-    gap = compute_behavior_gap(req.symbol, max(req.periodDays // 365, 2))
-    missing = compute_missing_days(req.symbol, max(req.periodDays // 365, 3))
-    mc = simulate_sip_vs_panic(req.symbol, req.simYears, req.sipAmount, req.nSimulations)
+    try:
+        # Pre-check historical data and quote to avoid silent zero-filled responses
+        hist_check = fetch_historical(req.symbol, req.periodDays)
+        quote = fetch_quote(req.symbol)
 
-    return {
-        "quote": quote,
-        "priceChart": price_chart,
-        "herding": herding,
-        "panic": panic,
-        "behaviorGap": gap,
-        "missingDays": missing,
-        "monteCarlo": mc,
-    }
+        # Fallback quote values from history if quote endpoint was throttled
+        if (not quote or quote.get("price", 0) <= 0) and not hist_check.empty and "Close" in hist_check.columns:
+            latest_price = float(hist_check["Close"].iloc[-1])
+            prev_price = float(hist_check["Close"].iloc[-2]) if len(hist_check) > 1 else latest_price
+            quote["price"] = round(latest_price, 2)
+            quote["prevClose"] = round(prev_price, 2)
+            quote["change"] = round(latest_price - prev_price, 2)
+            quote["changePct"] = round((latest_price - prev_price) / max(prev_price, 0.01) * 100, 2)
+
+        if hist_check.empty or quote.get("price", 0) <= 0:
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "status": "unavailable",
+                    "as_of": datetime.now(timezone.utc).isoformat(),
+                    "reason": f"Market data upstream unavailable for symbol {req.symbol}",
+                },
+            )
+
+        async def _compute_all():
+            try:
+                price_chart = get_price_chart(req.symbol, req.periodDays)
+            except Exception:
+                price_chart = []
+
+            try:
+                herding = compute_herding(req.symbol, req.periodDays)
+            except Exception as e:
+                herding = {
+                    "herdingDetected": False, "intensity": 0.0, "gamma2": 0.0,
+                    "pValue": 1.0, "rSquared": 0.0, "csadData": [],
+                    "sector": "Unknown", "error": str(e),
+                }
+
+            try:
+                panic = compute_panic(req.symbol, min(req.periodDays, 180))
+            except Exception:
+                panic = {"panicScore": 0, "level": "NO DATA", "factors": {}, "volumeData": []}
+
+            try:
+                gap = compute_behavior_gap(req.symbol, max(req.periodDays // 365, 2))
+            except Exception:
+                gap = {
+                    "investmentReturn": 0.0, "investmentCagr": 0.0, "investorCagr": 0.0,
+                    "behaviorGap": 0.0, "periodYears": 0.0, "gapInterpretation": "Insufficient data",
+                }
+
+            try:
+                missing = compute_missing_days(req.symbol, max(req.periodDays // 365, 3))
+            except Exception:
+                missing = []
+
+            try:
+                mc = simulate_sip_vs_panic(req.symbol, req.simYears, req.sipAmount, req.nSimulations)
+            except Exception:
+                mc = {
+                    "totalInvested": 0, "years": req.simYears, "nSimulations": req.nSimulations,
+                    "sip": {}, "panic": {}, "costOfPanic": {}, "histogram": [],
+                }
+
+            status: Literal["ok", "degraded", "unavailable"] = "ok"
+            reasons: list[str] = []
+
+            if herding.get("error"):
+                status = "degraded"
+                reasons.append(f"Herding: {herding['error']}")
+            if panic.get("level") == "NO DATA":
+                status = "degraded"
+                reasons.append("Panic: Insufficient data")
+            if gap.get("gapInterpretation") == "Insufficient data":
+                status = "degraded"
+                reasons.append("BehaviorGap: Insufficient data")
+
+            return {
+                "status": status,
+                "as_of": datetime.now(timezone.utc).isoformat(),
+                "data_version": "1.0",
+                "reason": "; ".join(reasons) if reasons else None,
+                "quote": quote,
+                "priceChart": price_chart,
+                "herding": herding,
+                "panic": panic,
+                "behaviorGap": gap,
+                "missingDays": missing,
+                "monteCarlo": mc,
+            }
+
+        cache_key = f"analysis:{req.symbol}:{req.periodDays}:{req.sipAmount}:{req.simYears}:{req.nSimulations}"
+        return await cache_service.get_or_compute(cache_key, _compute_all, ttl_sec=300, stale_ttl_sec=1800)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "status": "unavailable",
+                "as_of": datetime.now(timezone.utc).isoformat(),
+                "reason": f"Analysis calculation failure: {exc}",
+            },
+        )
+
+
+class ChatMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(..., max_length=2000)
 
 
 class ChatRequest(BaseModel):
-    messages: list[dict]
-    context: str = ""
+    messages: list[ChatMessage] = Field(..., max_length=50)
+    context: Optional[str] = None  # Dropped from system prompt per AUDIT.md Phase 0 Item f
 
 
-@app.post("/api/chat")
-def chat(req: ChatRequest):
+@app.post("/api/chat", response_model=ChatResponse)
+async def chat(
+    req: ChatRequest,
+    auth: str = Depends(get_auth_user),
+    _rate: None = Depends(check_rate_limit),
+):
     if not GROQ_API_KEY:
-        return {"response": "⚠️ Groq API key not configured. Please set GROQ_API_KEY in .env"}
+        raise HTTPException(status_code=503, detail="Groq API key not configured.")
     try:
         from groq import Groq
         client = Groq(api_key=GROQ_API_KEY)
@@ -546,26 +532,54 @@ def chat(req: ChatRequest):
 Help retail investors overcome biases like herd mentality, panic selling, and loss aversion.
 Always use ₹ (INR). Never give specific buy/sell recommendations. Encourage SIP discipline.
 Keep responses concise with clear formatting."""
-        if req.context:
-            system += f"\n\nCurrent context:\n{req.context}"
 
-        messages = [{"role": "system", "content": system}] + req.messages
-        response = client.chat.completions.create(
-            model=GROQ_MODEL,
-            messages=messages,
-            temperature=0.3,
-            max_tokens=2048,
-        )
+        # Sanitize messages: Groq requires conversations to start with a user message
+        cleaned_messages = []
+        for m in req.messages:
+            if not cleaned_messages and m.role == "assistant":
+                continue
+            cleaned_messages.append({"role": m.role, "content": m.content})
+
+        if not cleaned_messages:
+            return {
+                "response": "Hello! I am your Behavioral Finance Copilot. How can I help you evaluate emotional biases, herding, or panic selling risks today?"
+            }
+
+        messages = [{"role": "system", "content": system}] + cleaned_messages
+
+        try:
+            response = await asyncio.to_thread(
+                client.chat.completions.create,
+                model=GROQ_MODEL,
+                messages=messages,
+                temperature=0.3,
+                max_tokens=2048,
+            )
+        except Exception as primary_err:
+            logger.warning("Primary Groq model %s failed (%s); trying fallback llama-3.1-8b-instant...", GROQ_MODEL, primary_err)
+            response = await asyncio.to_thread(
+                client.chat.completions.create,
+                model="llama-3.1-8b-instant",
+                messages=messages,
+                temperature=0.3,
+                max_tokens=2048,
+            )
+
         return {"response": response.choices[0].message.content}
-    except Exception as e:
-        return {"response": f"⚠️ Error: {e}"}
+    except Exception as exc:
+        logger.error("Chat completion error: %s", exc, exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="An error occurred while processing the chat request.",
+        )
 
 
-@app.get("/api/health")
-def health():
+@app.get("/api/health", response_model=HealthResponse)
+async def health():
     return {"status": "ok", "groq": bool(GROQ_API_KEY)}
 
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    port = int(os.getenv("PORT", "8000"))
+    uvicorn.run(app, host="0.0.0.0", port=port)

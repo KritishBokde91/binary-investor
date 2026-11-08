@@ -99,8 +99,12 @@ class PortfolioSimulator:
                         panic_days_left = panic_reentry_days
 
                     # Monthly SIP
-                    if day % monthly_trading_days == 0:
-                        panic_units += self.sip_amount / price
+                    if in_market:
+                        if day % monthly_trading_days == 0:
+                            panic_units += self.sip_amount / price
+                    else:
+                        if day % monthly_trading_days == 0:
+                            panic_cash += self.sip_amount
                 else:
                     panic_days_left -= 1
                     # SIP goes to cash during panic
@@ -200,8 +204,12 @@ class PortfolioSimulator:
                         panic_units = 0
                         in_market = False
                         wait = 90
-                    if day % monthly_trading_days == 0:
-                        panic_units += self.sip_amount / price
+                    if in_market:
+                        if day % monthly_trading_days == 0:
+                            panic_units += self.sip_amount / price
+                    else:
+                        if day % monthly_trading_days == 0:
+                            panic_cash += self.sip_amount
                 else:
                     wait -= 1
                     if day % monthly_trading_days == 0:

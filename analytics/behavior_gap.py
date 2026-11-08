@@ -11,6 +11,7 @@ import streamlit as st
 
 from config.settings import settings
 from data.stock_data import fetch_historical_data
+from sheep_or_sleep.analytics.behavior_gap import compute_missing_days as _shared_compute_missing_days
 
 
 class BehaviorGapCalculator:
@@ -32,45 +33,24 @@ class BehaviorGapCalculator:
         if df.empty or len(df) < 100:
             return pd.DataFrame()
 
-        daily_returns = df["Returns"].values
-        dates = df.index
+        raw = _shared_compute_missing_days(df, initial_investment)
+        if not raw:
+            return pd.DataFrame()
 
-        scenarios = [0, 5, 10, 15, 20, 30]  # Missing best N days
-        records = []
-
-        for miss_n in scenarios:
-            if miss_n == 0:
-                # Buy and hold
-                portfolio = initial_investment * np.cumprod(1 + daily_returns)
-                final_value = portfolio[-1]
-            else:
-                # Remove N best return days
-                sorted_indices = np.argsort(daily_returns)[::-1]
-                modified_returns = daily_returns.copy()
-                for idx in sorted_indices[:miss_n]:
-                    modified_returns[idx] = 0  # Assume cash (0 return) on best days
-
-                portfolio = initial_investment * np.cumprod(1 + modified_returns)
-                final_value = portfolio[-1]
-
-            total_return = (final_value / initial_investment - 1) * 100
-            cagr = (
-                (final_value / initial_investment) ** (365 / len(daily_returns)) - 1
-            ) * 100
-
-            records.append({
-                "Scenario": f"Missing best {miss_n} days" if miss_n > 0 else "Fully invested (Buy & Hold)",
-                "Final Value (₹)": round(final_value, 0),
-                "Total Return (%)": round(total_return, 1),
-                "CAGR (%)": round(cagr, 2),
-                "Wealth Lost (₹)": 0,  # Will compute relative to buy-and-hold
-            })
-
+        records = [
+            {
+                "Scenario": r["scenario"] if "Missing" in r["scenario"] else "Fully invested (Buy & Hold)",
+                "Final Value (₹)": r["finalValue"],
+                "Total Return (%)": r["totalReturn"],
+                "CAGR (%)": r["cagr"],
+                "Wealth Lost (₹)": 0,
+            }
+            for r in raw
+        ]
         result = pd.DataFrame(records)
-        # Compute wealth lost vs buy-and-hold
         bh_value = result.iloc[0]["Final Value (₹)"]
         result["Wealth Lost (₹)"] = round(bh_value - result["Final Value (₹)"], 0)
-        result["% Reduction"] = round(result["Wealth Lost (₹)"] / bh_value * 100, 1)
+        result["% Reduction"] = round(result["Wealth Lost (₹)"] / max(bh_value, 1.0) * 100, 1)
 
         return result
 

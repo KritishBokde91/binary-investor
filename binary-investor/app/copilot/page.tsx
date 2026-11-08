@@ -2,14 +2,14 @@
 
 import { useState, useRef, useEffect } from "react";
 import {
-  Send, Sparkles, Loader2, ArrowLeft, MessageCircle, RotateCcw,
+  Send, Sparkles, Loader2, ArrowLeft, RotateCcw,
 } from "lucide-react";
 import type { ChatMessage } from "@/app/lib/types";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001";
+const API = typeof window !== "undefined" ? "" : (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000");
 
 const STARTERS = [
   { icon: "🐑", cat: "Behavior", label: "What is herd mentality in stock markets?", detail: "Explain with Indian market examples." },
