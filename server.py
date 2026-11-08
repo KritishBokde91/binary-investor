@@ -270,21 +270,27 @@ def simulate_sip_vs_panic(symbol: str, years: int = 10, sip: float = 10000.0, n_
 
 # ─── Analytics: Price chart ───────────────────────────
 def get_price_chart(symbol: str, period_days: int = 365) -> list[dict]:
-    df = fetch_historical(symbol, period_days)
-    if df.empty:
+    try:
+        df = fetch_historical(symbol, period_days)
+        if df.empty:
+            return []
+        # sample to ~120 points
+        step = max(1, len(df) // 120)
+        sampled = df.iloc[::step]
+        res = []
+        for d, row in sampled.iterrows():
+            d_str = d.strftime("%b %d, %Y") if hasattr(d, "strftime") else str(d)
+            res.append({
+                "date": d_str,
+                "open": round(float(row["Open"]), 2) if pd.notna(row.get("Open")) else 0.0,
+                "high": round(float(row["High"]), 2) if pd.notna(row.get("High")) else 0.0,
+                "low": round(float(row["Low"]), 2) if pd.notna(row.get("Low")) else 0.0,
+                "close": round(float(row["Close"]), 2) if pd.notna(row.get("Close")) else 0.0,
+                "volume": int(row["Volume"]) if pd.notna(row.get("Volume")) else 0,
+            })
+        return res
+    except Exception:
         return []
-    # sample to ~120 points
-    step = max(1, len(df) // 120)
-    sampled = df.iloc[::step]
-    return [
-        {"date": d.strftime("%b %d, %Y"),
-         "open": round(float(row["Open"]), 2),
-         "high": round(float(row["High"]), 2),
-         "low": round(float(row["Low"]), 2),
-         "close": round(float(row["Close"]), 2),
-         "volume": int(row["Volume"])}
-        for d, row in sampled.iterrows()
-    ]
 
 
 # ─── System Readiness ─────────────────────────────────
@@ -391,56 +397,111 @@ async def analyze(
     _rate: None = Depends(check_rate_limit),
 ):
     """One-tap: run ALL analytics for a stock and return everything."""
-    # Pre-check historical data and quote to avoid silent zero-filled responses
-    hist_check = fetch_historical(req.symbol, req.periodDays)
-    quote = fetch_quote(req.symbol)
-    if hist_check.empty or quote.get("price", 0) <= 0:
+    try:
+        # Pre-check historical data and quote to avoid silent zero-filled responses
+        hist_check = fetch_historical(req.symbol, req.periodDays)
+        quote = fetch_quote(req.symbol)
+
+        # Fallback quote values from history if quote endpoint was throttled
+        if (not quote or quote.get("price", 0) <= 0) and not hist_check.empty and "Close" in hist_check.columns:
+            latest_price = float(hist_check["Close"].iloc[-1])
+            prev_price = float(hist_check["Close"].iloc[-2]) if len(hist_check) > 1 else latest_price
+            quote["price"] = round(latest_price, 2)
+            quote["prevClose"] = round(prev_price, 2)
+            quote["change"] = round(latest_price - prev_price, 2)
+            quote["changePct"] = round((latest_price - prev_price) / max(prev_price, 0.01) * 100, 2)
+
+        if hist_check.empty or quote.get("price", 0) <= 0:
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "status": "unavailable",
+                    "as_of": datetime.now(timezone.utc).isoformat(),
+                    "reason": f"Market data upstream unavailable for symbol {req.symbol}",
+                },
+            )
+
+        async def _compute_all():
+            try:
+                price_chart = get_price_chart(req.symbol, req.periodDays)
+            except Exception:
+                price_chart = []
+
+            try:
+                herding = compute_herding(req.symbol, req.periodDays)
+            except Exception as e:
+                herding = {
+                    "herdingDetected": False, "intensity": 0.0, "gamma2": 0.0,
+                    "pValue": 1.0, "rSquared": 0.0, "csadData": [],
+                    "sector": "Unknown", "error": str(e),
+                }
+
+            try:
+                panic = compute_panic(req.symbol, min(req.periodDays, 180))
+            except Exception:
+                panic = {"panicScore": 0, "level": "NO DATA", "factors": {}, "volumeData": []}
+
+            try:
+                gap = compute_behavior_gap(req.symbol, max(req.periodDays // 365, 2))
+            except Exception:
+                gap = {
+                    "investmentReturn": 0.0, "investmentCagr": 0.0, "investorCagr": 0.0,
+                    "behaviorGap": 0.0, "periodYears": 0.0, "gapInterpretation": "Insufficient data",
+                }
+
+            try:
+                missing = compute_missing_days(req.symbol, max(req.periodDays // 365, 3))
+            except Exception:
+                missing = []
+
+            try:
+                mc = simulate_sip_vs_panic(req.symbol, req.simYears, req.sipAmount, req.nSimulations)
+            except Exception:
+                mc = {
+                    "totalInvested": 0, "years": req.simYears, "nSimulations": req.nSimulations,
+                    "sip": {}, "panic": {}, "costOfPanic": {}, "histogram": [],
+                }
+
+            status: Literal["ok", "degraded", "unavailable"] = "ok"
+            reasons: list[str] = []
+
+            if herding.get("error"):
+                status = "degraded"
+                reasons.append(f"Herding: {herding['error']}")
+            if panic.get("level") == "NO DATA":
+                status = "degraded"
+                reasons.append("Panic: Insufficient data")
+            if gap.get("gapInterpretation") == "Insufficient data":
+                status = "degraded"
+                reasons.append("BehaviorGap: Insufficient data")
+
+            return {
+                "status": status,
+                "as_of": datetime.now(timezone.utc).isoformat(),
+                "data_version": "1.0",
+                "reason": "; ".join(reasons) if reasons else None,
+                "quote": quote,
+                "priceChart": price_chart,
+                "herding": herding,
+                "panic": panic,
+                "behaviorGap": gap,
+                "missingDays": missing,
+                "monteCarlo": mc,
+            }
+
+        cache_key = f"analysis:{req.symbol}:{req.periodDays}:{req.sipAmount}:{req.simYears}:{req.nSimulations}"
+        return await cache_service.get_or_compute(cache_key, _compute_all, ttl_sec=300, stale_ttl_sec=1800)
+    except HTTPException:
+        raise
+    except Exception as exc:
         raise HTTPException(
             status_code=503,
             detail={
                 "status": "unavailable",
                 "as_of": datetime.now(timezone.utc).isoformat(),
-                "reason": f"Market data upstream unavailable for symbol {req.symbol}",
+                "reason": f"Analysis calculation failure: {exc}",
             },
         )
-
-    async def _compute_all():
-        price_chart = get_price_chart(req.symbol, req.periodDays)
-        herding = compute_herding(req.symbol, req.periodDays)
-        panic = compute_panic(req.symbol, min(req.periodDays, 180))
-        gap = compute_behavior_gap(req.symbol, max(req.periodDays // 365, 2))
-        missing = compute_missing_days(req.symbol, max(req.periodDays // 365, 3))
-        mc = simulate_sip_vs_panic(req.symbol, req.simYears, req.sipAmount, req.nSimulations)
-
-        status: Literal["ok", "degraded", "unavailable"] = "ok"
-        reasons: list[str] = []
-
-        if herding.get("error"):
-            status = "degraded"
-            reasons.append(f"Herding: {herding['error']}")
-        if panic.get("level") == "NO DATA":
-            status = "degraded"
-            reasons.append("Panic: Insufficient data")
-        if gap.get("gapInterpretation") == "Insufficient data":
-            status = "degraded"
-            reasons.append("BehaviorGap: Insufficient data")
-
-        return {
-            "status": status,
-            "as_of": datetime.now(timezone.utc).isoformat(),
-            "data_version": "1.0",
-            "reason": "; ".join(reasons) if reasons else None,
-            "quote": quote,
-            "priceChart": price_chart,
-            "herding": herding,
-            "panic": panic,
-            "behaviorGap": gap,
-            "missingDays": missing,
-            "monteCarlo": mc,
-        }
-
-    cache_key = f"analysis:{req.symbol}:{req.periodDays}:{req.sipAmount}:{req.simYears}:{req.nSimulations}"
-    return await cache_service.get_or_compute(cache_key, _compute_all, ttl_sec=300, stale_ttl_sec=1800)
 
 
 class ChatMessage(BaseModel):

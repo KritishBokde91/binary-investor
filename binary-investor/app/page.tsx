@@ -274,7 +274,24 @@ export default function DashboardPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ symbol: stock.symbol }),
       });
-      if (!res.ok) throw new Error(`Server error: ${res.status}`);
+      if (!res.ok) {
+        let errorDetail = `Server error: ${res.status}`;
+        try {
+          const errJson = await res.json();
+          if (errJson.detail) {
+            if (typeof errJson.detail === "string") {
+              errorDetail = errJson.detail;
+            } else if (errJson.detail.reason) {
+              errorDetail = errJson.detail.reason;
+            }
+          } else if (errJson.error) {
+            errorDetail = errJson.error;
+          }
+        } catch {
+          // ignore json parse failure
+        }
+        throw new Error(errorDetail);
+      }
       const data: AnalysisResult = await res.json();
       setResult(data);
     } catch (err: any) {

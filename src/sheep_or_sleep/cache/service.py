@@ -23,6 +23,34 @@ end
 """
 
 
+def _sanitize_for_json(val: Any) -> Any:
+    """Recursively convert NumPy/Pandas scalars, dates, arrays, etc., to standard JSON serializable primitives."""
+    if hasattr(val, "tolist"):
+        try:
+            return _sanitize_for_json(val.tolist())
+        except Exception:
+            pass
+    if hasattr(val, "item"):
+        try:
+            return _sanitize_for_json(val.item())
+        except Exception:
+            pass
+    if isinstance(val, (int, str, bool)):
+        return val
+    if isinstance(val, float):
+        import math
+        if math.isnan(val) or math.isinf(val):
+            return 0.0
+        return val
+    if isinstance(val, dict):
+        return {k: _sanitize_for_json(v) for k, v in val.items()}
+    if isinstance(val, (list, tuple, set)):
+        return [_sanitize_for_json(v) for v in val]
+    if hasattr(val, "isoformat"):
+        return val.isoformat()
+    return val
+
+
 class CacheService:
     """Async Redis caching service with dogpile stampede protection and stale-while-revalidate."""
 
@@ -95,7 +123,7 @@ class CacheService:
         total_ttl = ttl_sec + stale_ttl_sec
 
         payload = {
-            "value": value,
+            "value": _sanitize_for_json(value),
             "fresh_until": fresh_until,
             "stale_until": stale_until,
         }

@@ -82,7 +82,7 @@ def compute_panic_score(df: pd.DataFrame) -> dict:
     volume_data = [
         {
             "date": d.strftime("%b %d") if hasattr(d, "strftime") else str(d),
-            "volume": int(row["Volume"]),
+            "volume": int(row["Volume"]) if pd.notna(row["Volume"]) else 0,
             "zscore": round(float(row["Vol_Zscore"]), 2) if pd.notna(row["Vol_Zscore"]) else 0,
             "returns": round(float(row["Returns"]) * 100, 2) if pd.notna(row["Returns"]) else 0,
             "isPanic": bool(row["Vol_Zscore"] > 2 and row["Returns"] < -0.005) if pd.notna(row["Vol_Zscore"]) else False,
