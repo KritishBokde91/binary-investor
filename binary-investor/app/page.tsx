@@ -508,7 +508,7 @@ export default function DashboardPage() {
                       : <ArrowDownRight size={14} style={{ color: "var(--down-mid)" }} />
                     }
                     <span className={`badge ${isUp ? "badge-up" : "badge-down"}`}>
-                      {fmtPct(quote.changePct)} ({fmtPct(quote.change, 2)})
+                      {quote.change >= 0 ? "+" : ""}₹{Math.abs(quote.change).toFixed(2)} ({fmtPct(quote.changePct)})
                     </span>
                   </div>
                 </div>
@@ -592,7 +592,9 @@ export default function DashboardPage() {
                   <div>
                     <h2 className="section-title">Price Chart</h2>
                     <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2, fontFamily: "var(--font-body)" }}>
-                      Last 6 months · {result.priceChart.length} trading days
+                      {result.priceChart.length > 1
+                        ? `${result.priceChart[0]?.date} – ${result.priceChart[result.priceChart.length - 1]?.date} · ${result.priceChart.length} trading days`
+                        : `1 Year · ${result.priceChart.length} trading days`}
                     </p>
                   </div>
                   <div className="tab-bar" style={{ minWidth: 160 }}>
@@ -714,7 +716,7 @@ export default function DashboardPage() {
 
               <InsightBox
                 icon={result.panic.panicScore > 60 ? "😰" : result.panic.panicScore > 35 ? "⚠️" : "😌"}
-                text={`Panic score: ${result.panic.panicScore.toFixed(0)}/100. Current drawdown: ${result.panic.details.currentDrawdown?.toFixed(1)}%. Volatility is ${result.panic.details.currentVolatility > result.panic.details.avgVolatility * 1.3 ? "elevated" : "normal"} at ${(result.panic.details.currentVolatility * 100).toFixed(2)}% vs avg ${(result.panic.details.avgVolatility * 100).toFixed(2)}%.`}
+                text={`Panic score: ${result.panic.panicScore.toFixed(0)}/100. Current drawdown: ${result.panic.details.currentDrawdown?.toFixed(1)}%. Volatility is ${result.panic.details.currentVolatility > result.panic.details.avgVolatility * 1.3 ? "elevated" : "normal"} at ${result.panic.details.currentVolatility?.toFixed(1)}% vs avg ${result.panic.details.avgVolatility?.toFixed(1)}%.`}
                 color={result.panic.panicScore > 60 ? "var(--down-bg)" : result.panic.panicScore > 35 ? "var(--warn-bg)" : "var(--up-bg)"}
                 textColor={result.panic.panicScore > 60 ? "var(--down)" : result.panic.panicScore > 35 ? "var(--warn)" : "var(--up)"}
               />
@@ -777,7 +779,7 @@ export default function DashboardPage() {
             {/* Monte Carlo */}
             <Section
               title="Monte Carlo SIP Simulation"
-              subtitle="10,000 scenarios — SIP vs. panic selling"
+              subtitle={`${(result.monteCarlo?.nSimulations || 500).toLocaleString()} scenarios — SIP vs. panic selling`}
               icon={<BarChart2 size={15} style={{ color: "var(--accent)" }} />}
             >
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
@@ -812,7 +814,7 @@ export default function DashboardPage() {
 
               <InsightBox
                 icon="💰"
-                text={`Over ${result.monteCarlo.years} years, a disciplined SIP investor would beat a panic seller in ${result.monteCarlo.costOfPanic.winRate?.toFixed(0)}% of simulated scenarios. The median cost of panic: ${fmt(result.monteCarlo.costOfPanic.meanLoss)} (${result.monteCarlo.costOfPanic.pctLoss?.toFixed(1)}% of portfolio).`}
+                text={`Over ${result.monteCarlo.years} years, a disciplined SIP investor would beat a panic seller in ${result.monteCarlo.costOfPanic.winRate?.toFixed(0)}% of simulated scenarios. The mean cost of panic: ${fmt(result.monteCarlo.costOfPanic.meanLoss)} (${result.monteCarlo.costOfPanic.pctLoss?.toFixed(1)}% of portfolio).`}
                 color="var(--up-bg)"
                 textColor="var(--up)"
               />

@@ -383,7 +383,12 @@ export function MCHistogram({ data }: { data: HistogramBin[] }) {
           dataKey="binStart"
           tick={{ fontSize: 9, fill: MUTED, fontFamily: "var(--font-mono)" }}
           stroke="transparent"
-          tickFormatter={(v) => v >= 1e7 ? `₹${(v / 1e7).toFixed(1)}Cr` : `₹${(v / 1e5).toFixed(0)}L`}
+          tickFormatter={(v) => {
+            if (v >= 1e7) return `₹${(v / 1e7).toFixed(1)}Cr`;
+            if (v >= 1e5) return `₹${(v / 1e5).toFixed(1)}L`;
+            if (v >= 1e3) return `₹${(v / 1e3).toFixed(0)}k`;
+            return `₹${v}`;
+          }}
           interval={Math.floor(data.length / 6)}
         />
         <YAxis tick={{ fontSize: 9, fill: MUTED, fontFamily: "var(--font-mono)" }} stroke="transparent" label={{ value: "Simulations", angle: -90, position: "insideLeft", fontSize: 9, fill: MUTED }} />
@@ -410,7 +415,12 @@ export function MissingDaysChart({ data }: { data: MissingDayScenario[] }) {
           type="number"
           tick={{ fontSize: 10, fill: MUTED, fontFamily: "var(--font-mono)" }}
           stroke="transparent"
-          tickFormatter={(v) => v >= 1e7 ? `₹${(v / 1e7).toFixed(1)}Cr` : `₹${(v / 1e5).toFixed(0)}L`}
+          tickFormatter={(v) => {
+            if (v >= 1e7) return `₹${(v / 1e7).toFixed(1)}Cr`;
+            if (v >= 1e5) return `₹${(v / 1e5).toFixed(1)}L`;
+            if (v >= 1e3) return `₹${(v / 1e3).toFixed(0)}k`;
+            return `₹${v}`;
+          }}
         />
         <YAxis
           type="category"
