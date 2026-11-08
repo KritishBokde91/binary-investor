@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# SheepOrSleep (binary-investor) — One-Click Setup & Launch Script
-# Target: Linux (Ubuntu, Debian, Fedora, Arch, Alpine, CentOS, openSUSE, etc.)
+# SheepOrSleep (binary-investor) — Universal One-Click Setup & Launch Script
+# Target: Linux (Ubuntu, Debian, Fedora, Arch, BlackArch, Alpine, CentOS, etc.)
 # ==============================================================================
 
 set -e
@@ -39,6 +39,52 @@ EOF
     fi
 fi
 
+# Function to find the next available port on the host
+find_free_port() {
+    local target=$1
+    if command -v python3 >/dev/null 2>&1; then
+        python3 -c "
+import socket
+p = $target
+while p < $target + 100:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        try:
+            s.bind(('0.0.0.0', p))
+            print(p)
+            break
+        except OSError:
+            p += 1
+"
+    else
+        echo "$target"
+    fi
+}
+
+# Dynamic port conflict resolution (avoids "port is already allocated" errors on host)
+POSTGRES_PORT="${POSTGRES_PORT:-$(find_free_port 5432)}"
+if [ "$POSTGRES_PORT" != "5432" ]; then
+    echo -e "${YELLOW}ℹ Host port 5432 in use. Remapped host PostgreSQL port to ${POSTGRES_PORT}.${NC}"
+fi
+export POSTGRES_PORT
+
+REDIS_PORT="${REDIS_PORT:-$(find_free_port 6379)}"
+if [ "$REDIS_PORT" != "6379" ]; then
+    echo -e "${YELLOW}ℹ Host port 6379 in use. Remapped host Redis port to ${REDIS_PORT}.${NC}"
+fi
+export REDIS_PORT
+
+API_PORT="${API_PORT:-$(find_free_port 8000)}"
+if [ "$API_PORT" != "8000" ]; then
+    echo -e "${YELLOW}ℹ Host port 8000 in use. Remapped host API port to ${API_PORT}.${NC}"
+fi
+export API_PORT
+
+WEB_PORT="${WEB_PORT:-$(find_free_port 3000)}"
+if [ "$WEB_PORT" != "3000" ]; then
+    echo -e "${YELLOW}ℹ Host port 3000 in use. Remapped host Web port to ${WEB_PORT}.${NC}"
+fi
+export WEB_PORT
+
 # Detect whether Docker daemon is active and responsive
 HAS_DOCKER=false
 if command -v docker >/dev/null 2>&1; then
@@ -66,15 +112,18 @@ if [ "$HAS_DOCKER" = true ]; then
 fi
 
 if [ "$HAS_DOCKER" = true ]; then
+    # Clean up any lingering or failed containers from previous runs
+    $COMPOSE_CMD down --remove-orphans >/dev/null 2>&1 || true
+
     $COMPOSE_CMD up --build -d
 
     echo -e "${GREEN}✔ Containers launched successfully in background.${NC}"
     echo ""
     echo -e "${BOLD}Services are live at:${NC}"
-    echo -e "  🌐 Frontend Web UI:  ${BOLD}${GREEN}http://localhost:3000${NC}"
-    echo -e "  ⚡ Backend REST API: ${BOLD}${BLUE}http://localhost:8000${NC}"
-    echo -e "  🩺 Healthcheck:      ${BOLD}http://localhost:8000/healthz${NC}"
-    echo -e "  📊 Metrics Endpoint: ${BOLD}http://localhost:8000/api/metrics${NC}"
+    echo -e "  🌐 Frontend Web UI:  ${BOLD}${GREEN}http://localhost:${WEB_PORT}${NC}"
+    echo -e "  ⚡ Backend REST API: ${BOLD}${BLUE}http://localhost:${API_PORT}${NC}"
+    echo -e "  🩺 Healthcheck:      ${BOLD}http://localhost:${API_PORT}/healthz${NC}"
+    echo -e "  📊 Metrics Endpoint: ${BOLD}http://localhost:${API_PORT}/api/metrics${NC}"
     echo ""
     echo -e "To view live logs:    ${YELLOW}$COMPOSE_CMD logs -f${NC}"
     echo -e "To stop all services: ${YELLOW}$COMPOSE_CMD down${NC}"
@@ -83,8 +132,8 @@ if [ "$HAS_DOCKER" = true ]; then
     # Attempt to open browser if running in desktop graphical session
     if [ -n "$DISPLAY" ] || [ -n "$WAYLAND_DISPLAY" ]; then
         if command -v xdg-open >/dev/null 2>&1; then
-            echo -e "${BLUE}Opening browser at http://localhost:3000 ...${NC}"
-            xdg-open "http://localhost:3000" >/dev/null 2>&1 || true
+            echo -e "${BLUE}Opening browser at http://localhost:${WEB_PORT} ...${NC}"
+            xdg-open "http://localhost:${WEB_PORT}" >/dev/null 2>&1 || true
         fi
     fi
     exit 0
@@ -147,17 +196,16 @@ cleanup() {
 trap cleanup INT TERM EXIT
 
 # 4. Start Backend API
-echo -e "${GREEN}▶ Starting FastAPI Backend on http://localhost:8000 ...${NC}"
-"$VENV_DIR/bin/uvicorn" server:app --host 0.0.0.0 --port 8000 &
+echo -e "${GREEN}▶ Starting FastAPI Backend on http://localhost:${API_PORT} ...${NC}"
+"$VENV_DIR/bin/uvicorn" server:app --host 0.0.0.0 --port "$API_PORT" &
 API_PID=$!
 
-# Wait briefly for backend port to be responsive
 sleep 2
 
 # 5. Start Frontend Next.js app
-echo -e "${GREEN}▶ Starting Next.js Frontend on http://localhost:3000 ...${NC}"
+echo -e "${GREEN}▶ Starting Next.js Frontend on http://localhost:${WEB_PORT} ...${NC}"
 cd "$SCRIPT_DIR/binary-investor"
-npm run dev -- -p 3000 &
+NEXT_PUBLIC_API_URL="http://localhost:${API_PORT}" npm run dev -- -p "$WEB_PORT" &
 WEB_PID=$!
 cd "$SCRIPT_DIR"
 
@@ -166,9 +214,9 @@ sleep 3
 echo ""
 echo -e "${BOLD}${GREEN}=================================================================="
 echo -e "  🎉 SheepOrSleep is running!"
-echo -e "  🌐 Open Website:     ${BOLD}http://localhost:3000${NC}"
-echo -e "  ⚡ API Documentation: http://localhost:8000/docs"
-echo -e "  🩺 API Health:        http://localhost:8000/healthz"
+echo -e "  🌐 Open Website:     ${BOLD}http://localhost:${WEB_PORT}${NC}"
+echo -e "  ⚡ API Documentation: http://localhost:${API_PORT}/docs"
+echo -e "  🩺 API Health:        http://localhost:${API_PORT}/healthz"
 echo -e "${BOLD}${GREEN}=================================================================="
 echo -e "${NC}"
 echo -e "${YELLOW}Press [Ctrl+C] to stop all services.${NC}"
@@ -176,7 +224,7 @@ echo -e "${YELLOW}Press [Ctrl+C] to stop all services.${NC}"
 # Open browser if graphical environment is available
 if [ -n "$DISPLAY" ] || [ -n "$WAYLAND_DISPLAY" ]; then
     if command -v xdg-open >/dev/null 2>&1; then
-        xdg-open "http://localhost:3000" >/dev/null 2>&1 || true
+        xdg-open "http://localhost:${WEB_PORT}" >/dev/null 2>&1 || true
     fi
 fi
 
