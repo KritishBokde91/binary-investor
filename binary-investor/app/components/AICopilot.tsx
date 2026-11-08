@@ -11,7 +11,7 @@ interface Props {
   result: AnalysisResult | null;
 }
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API = typeof window !== "undefined" ? "" : (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000");
 
 export default function AICopilotPanel({ result }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);

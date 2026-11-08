@@ -205,7 +205,7 @@ sleep 2
 # 5. Start Frontend Next.js app
 echo -e "${GREEN}▶ Starting Next.js Frontend on http://localhost:${WEB_PORT} ...${NC}"
 cd "$SCRIPT_DIR/binary-investor"
-NEXT_PUBLIC_API_URL="http://localhost:${API_PORT}" npm run dev -- -p "$WEB_PORT" &
+INTERNAL_API_URL="http://127.0.0.1:${API_PORT}" NEXT_PUBLIC_API_URL="http://localhost:${API_PORT}" npm run dev -- -p "$WEB_PORT" &
 WEB_PID=$!
 cd "$SCRIPT_DIR"
 

@@ -64,7 +64,7 @@ services:
     container_name: sheep_or_sleep_web
     restart: unless-stopped
     environment:
-      NEXT_PUBLIC_API_URL: "http://localhost:${API_PORT:-8000}"
+      INTERNAL_API_URL: http://api:8000
       PORT: 3000
     ports:
       - "${WEB_PORT:-3000}:3000"

@@ -17,7 +17,7 @@ import {
 } from "@/app/components/Charts";
 import type { StockInfo, AnalysisResult } from "@/app/lib/types";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API = typeof window !== "undefined" ? "" : (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000");
 
 /* ─── Helper: Format large numbers ─── */
 function fmt(n: number, digits = 2): string {
