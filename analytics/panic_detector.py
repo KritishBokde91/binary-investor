@@ -34,10 +34,10 @@ class PanicDetector:
 
         result = df[["Close", "Volume", "Returns"]].copy()
 
-        # Volume z-score
-        vol_mean = result["Volume"].rolling(20).mean()
-        vol_std = result["Volume"].rolling(20).std()
-        result["Volume_Zscore"] = (result["Volume"] - vol_mean) / vol_std.replace(0, np.nan)
+        # Volume z-score with lagged window (excluding today)
+        vol_mean = result["Volume"].shift(1).rolling(20).mean()
+        vol_std = result["Volume"].shift(1).rolling(20).std().replace(0, np.nan)
+        result["Volume_Zscore"] = (result["Volume"] - vol_mean) / vol_std
 
         # Flag anomalies: high volume + negative return
         result["Volume_Spike"] = result["Volume_Zscore"] > self.vol_z_thresh

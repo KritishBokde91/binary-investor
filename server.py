@@ -6,12 +6,13 @@ Exposes all analytics as REST API for the Next.js frontend.
 from __future__ import annotations
 
 import os
+import re
 import json
 import numpy as np
 import pandas as pd
 import yfinance as yf
-from datetime import datetime, timedelta
-from typing import Optional
+from datetime import datetime, timezone, timedelta
+from typing import Optional, Literal
 from scipy import stats
 
 from dotenv import load_dotenv
@@ -19,15 +20,18 @@ load_dotenv()
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
 # ─── App ──────────────────────────────────────────────
 app = FastAPI(title="SheepOrSleep API", version="1.0.0")
 
+raw_origins = os.getenv("ALLOWED_ORIGINS", os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000"))
+allowed_origins = [orig.strip() for orig in raw_origins.split(",") if orig.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=allowed_origins,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -115,6 +119,9 @@ STOCK_UNIVERSE = [
     {"symbol": "MPHASIS.NS",   "name": "Mphasis",                    "sector": "IT",                "index": "NIFTY NEXT 50"},
     {"symbol": "AMBUJACEM.NS", "name": "Ambuja Cements",             "sector": "Cement",            "index": "NIFTY NEXT 50"},
 ]
+
+KNOWN_SYMBOLS = {s["symbol"] for s in STOCK_UNIVERSE}
+SYMBOL_PATTERN = re.compile(r"^[A-Z0-9&.-]{1,20}$")
 
 
 def get_sector_symbols(sector: str) -> list[str]:
@@ -217,9 +224,9 @@ def compute_herding(symbol: str, period_days: int = 365) -> dict:
         except Exception:
             se = np.array([0, 0, 0])
         t_stat = gamma2 / se[2] if se[2] > 0 else 0
-        p_val = 2 * (1 - stats.t.cdf(abs(t_stat), df=n - k))
+        p_val = float(stats.t.sf(-t_stat, df=n - k))
         herding = gamma2 < 0 and p_val < 0.05
-        intensity = min(100, abs(gamma2 / max(abs(gamma1), 1e-6)) * 100) if herding else max(0, min(20, abs(gamma2) * 1000))
+        intensity = min(100, abs(gamma2 / max(abs(gamma1), 1e-6)) * 100) if herding else 0.0
 
         # build scatter data for chart (sample 200 points max)
         indices = np.linspace(0, len(abs_mkt) - 1, min(200, len(abs_mkt)), dtype=int)
@@ -258,8 +265,10 @@ def compute_panic(symbol: str, period_days: int = 90) -> dict:
 
     # Technical indicators
     df["SMA_20"] = df["Close"].rolling(20).mean()
-    df["Vol_SMA_20"] = df["Volume"].rolling(20).mean()
-    df["Vol_Zscore"] = (df["Volume"] - df["Vol_SMA_20"]) / df["Volume"].rolling(20).std().replace(0, np.nan)
+    vol_mean_20 = df["Volume"].shift(1).rolling(20).mean()
+    vol_std_20 = df["Volume"].shift(1).rolling(20).std().replace(0, np.nan)
+    df["Vol_SMA_20"] = vol_mean_20
+    df["Vol_Zscore"] = (df["Volume"] - vol_mean_20) / vol_std_20
     df["Volatility"] = df["Returns"].rolling(20).std() * np.sqrt(252) * 100
 
     # Factor 1: Volume anomalies
@@ -376,7 +385,7 @@ def compute_missing_days(symbol: str, period_years: int = 10, initial: float = 1
                 modified[idx] = 0
         final = initial * np.prod(1 + modified)
         total_ret = (final / initial - 1) * 100
-        cagr = ((final / initial) ** (365 / len(daily_returns)) - 1) * 100
+        cagr = ((final / initial) ** (252 / len(daily_returns)) - 1) * 100
         bh_final = initial * np.prod(1 + daily_returns) if miss_n > 0 else final
         results.append({
             "scenario": f"Missing {miss_n} best days" if miss_n > 0 else "Fully invested",
@@ -418,7 +427,10 @@ def simulate_sip_vs_panic(symbol: str, years: int = 10, sip: float = 10000, n_si
                 peak = max(peak, price)
                 if (price - peak) / peak <= -0.10:
                     cash += units * price; units = 0; in_mkt = False; wait = 90
-                if d % monthly == 0: units += sip / price
+                if in_mkt:
+                    if d % monthly == 0: units += sip / price
+                else:
+                    if d % monthly == 0: cash += sip
             else:
                 wait -= 1
                 if d % monthly == 0: cash += sip
@@ -497,21 +509,44 @@ def list_stocks():
 
 @app.get("/api/quote")
 def get_quote(symbol: str):
+    if not SYMBOL_PATTERN.match(symbol) or symbol not in KNOWN_SYMBOLS:
+        raise HTTPException(status_code=400, detail=f"Invalid or unknown symbol: {symbol}")
     return fetch_quote(symbol)
 
 
 class AnalyzeRequest(BaseModel):
     symbol: str
-    periodDays: int = 365
-    sipAmount: float = 10000
-    simYears: int = 10
-    nSimulations: int = 500
+    periodDays: int = Field(365, ge=90, le=3650)
+    sipAmount: float = Field(10000, gt=0, le=1000000)
+    simYears: int = Field(10, ge=1, le=30)
+    nSimulations: int = Field(500, ge=100, le=20000)
+
+    @field_validator("symbol")
+    @classmethod
+    def validate_symbol(cls, v: str) -> str:
+        if not SYMBOL_PATTERN.match(v):
+            raise ValueError(f"Invalid symbol format: {v}")
+        if v not in KNOWN_SYMBOLS:
+            raise ValueError(f"Unknown symbol: {v}. Must be in supported stock universe.")
+        return v
 
 
 @app.post("/api/analyze")
 def analyze(req: AnalyzeRequest):
     """One-tap: run ALL analytics for a stock and return everything."""
+    # Pre-check historical data and quote to avoid silent zero-filled responses
+    hist_check = fetch_historical(req.symbol, req.periodDays)
     quote = fetch_quote(req.symbol)
+    if hist_check.empty or quote.get("price", 0) <= 0:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "status": "unavailable",
+                "as_of": datetime.now(timezone.utc).isoformat(),
+                "reason": f"Market data upstream unavailable for symbol {req.symbol}",
+            },
+        )
+
     price_chart = get_price_chart(req.symbol, req.periodDays)
     herding = compute_herding(req.symbol, req.periodDays)
     panic = compute_panic(req.symbol, min(req.periodDays, 180))
@@ -519,7 +554,24 @@ def analyze(req: AnalyzeRequest):
     missing = compute_missing_days(req.symbol, max(req.periodDays // 365, 3))
     mc = simulate_sip_vs_panic(req.symbol, req.simYears, req.sipAmount, req.nSimulations)
 
+    status: Literal["ok", "degraded", "unavailable"] = "ok"
+    reasons: list[str] = []
+
+    if herding.get("error"):
+        status = "degraded"
+        reasons.append(f"Herding: {herding['error']}")
+    if panic.get("level") == "NO DATA":
+        status = "degraded"
+        reasons.append("Panic: Insufficient data")
+    if gap.get("gapInterpretation") == "Insufficient data":
+        status = "degraded"
+        reasons.append("BehaviorGap: Insufficient data")
+
     return {
+        "status": status,
+        "as_of": datetime.now(timezone.utc).isoformat(),
+        "data_version": "1.0",
+        "reason": "; ".join(reasons) if reasons else None,
         "quote": quote,
         "priceChart": price_chart,
         "herding": herding,
@@ -530,15 +582,20 @@ def analyze(req: AnalyzeRequest):
     }
 
 
+class ChatMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(..., max_length=2000)
+
+
 class ChatRequest(BaseModel):
-    messages: list[dict]
-    context: str = ""
+    messages: list[ChatMessage] = Field(..., max_length=50)
+    context: Optional[str] = None  # Dropped from system prompt per AUDIT.md Phase 0 Item f
 
 
 @app.post("/api/chat")
 def chat(req: ChatRequest):
     if not GROQ_API_KEY:
-        return {"response": "⚠️ Groq API key not configured. Please set GROQ_API_KEY in .env"}
+        raise HTTPException(status_code=503, detail="Groq API key not configured.")
     try:
         from groq import Groq
         client = Groq(api_key=GROQ_API_KEY)
@@ -546,10 +603,10 @@ def chat(req: ChatRequest):
 Help retail investors overcome biases like herd mentality, panic selling, and loss aversion.
 Always use ₹ (INR). Never give specific buy/sell recommendations. Encourage SIP discipline.
 Keep responses concise with clear formatting."""
-        if req.context:
-            system += f"\n\nCurrent context:\n{req.context}"
 
-        messages = [{"role": "system", "content": system}] + req.messages
+        messages = [{"role": "system", "content": system}] + [
+            {"role": m.role, "content": m.content} for m in req.messages
+        ]
         response = client.chat.completions.create(
             model=GROQ_MODEL,
             messages=messages,
@@ -557,8 +614,11 @@ Keep responses concise with clear formatting."""
             max_tokens=2048,
         )
         return {"response": response.choices[0].message.content}
-    except Exception as e:
-        return {"response": f"⚠️ Error: {e}"}
+    except Exception:
+        raise HTTPException(
+            status_code=500,
+            detail="An error occurred while processing the chat request.",
+        )
 
 
 @app.get("/api/health")
@@ -568,4 +628,5 @@ def health():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    port = int(os.getenv("PORT", "8000"))
+    uvicorn.run(app, host="0.0.0.0", port=port)

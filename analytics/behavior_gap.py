@@ -55,7 +55,7 @@ class BehaviorGapCalculator:
 
             total_return = (final_value / initial_investment - 1) * 100
             cagr = (
-                (final_value / initial_investment) ** (365 / len(daily_returns)) - 1
+                (final_value / initial_investment) ** (252 / len(daily_returns)) - 1
             ) * 100
 
             records.append({

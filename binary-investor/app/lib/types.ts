@@ -116,6 +116,10 @@ export interface MonteCarloResult {
 }
 
 export interface AnalysisResult {
+  status: "ok" | "degraded" | "unavailable";
+  as_of?: string | null;
+  data_version?: string;
+  reason?: string | null;
   quote: StockQuote;
   priceChart: PricePoint[];
   herding: HerdingResult;

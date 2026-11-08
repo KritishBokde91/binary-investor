@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   TrendingUp, TrendingDown, Activity, BarChart2,
   Brain, Zap, AlertTriangle, CheckCircle2, ChevronRight,
@@ -257,8 +257,11 @@ export default function DashboardPage() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"candle" | "area">("candle");
+  const ctrl = useRef<AbortController | null>(null);
 
   const analyze = async (stock: StockInfo) => {
+    ctrl.current?.abort();
+    const c = (ctrl.current = new AbortController());
     setSelected(stock);
     setLoading(true);
     setError(null);
@@ -267,6 +270,7 @@ export default function DashboardPage() {
     try {
       const res = await fetch(`${API}/api/analyze`, {
         method: "POST",
+        signal: c.signal,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ symbol: stock.symbol }),
       });
@@ -274,9 +278,14 @@ export default function DashboardPage() {
       const data: AnalysisResult = await res.json();
       setResult(data);
     } catch (err: any) {
-      setError(err.message || "Failed to fetch data.");
+      if (err.name !== "AbortError") {
+        setError(err.message || "Failed to fetch data.");
+      }
+    } finally {
+      if (!c.signal.aborted) {
+        setLoading(false);
+      }
     }
-    setLoading(false);
   };
 
   const quote = result?.quote;
@@ -285,6 +294,34 @@ export default function DashboardPage() {
   /* ── Derived conclusion ── */
   const getConclusion = (): { verdict: string; summary: string; actions: string[]; riskLevel: "low" | "medium" | "high" } => {
     if (!result) return { verdict: "", summary: "", actions: [], riskLevel: "low" };
+
+    // Gate: Every input must be OK to render a verdict (AUDIT.md Finding 1 / Phase 0 Item a)
+    const isDataOk =
+      result.status === "ok" &&
+      result.quote &&
+      result.quote.price > 0 &&
+      result.priceChart &&
+      result.priceChart.length > 0 &&
+      result.panic &&
+      result.panic.level !== "NO DATA" &&
+      result.behaviorGap &&
+      result.behaviorGap.gapInterpretation !== "Insufficient data" &&
+      result.herding &&
+      !result.herding.error;
+
+    if (!isDataOk) {
+      const reasonMsg = result.reason || (result.panic?.level === "NO DATA" ? "Market data unavailable or insufficient history" : "Incomplete or degraded input data");
+      return {
+        verdict: "",
+        summary: `Analysis inputs are incomplete or degraded (${reasonMsg}). A behavioral verdict cannot be reliably rendered until data feeds and inputs are verified OK.`,
+        actions: [
+          "Data feeds for this stock or sector peers are incomplete or degraded.",
+          "Verdict suppressed to prevent false-positive 'Healthy' assessments on missing or zero-filled data.",
+          "Try refreshing or selecting another stock with complete market data.",
+        ],
+        riskLevel: "medium",
+      };
+    }
 
     const { herding, panic, behaviorGap, monteCarlo } = result;
     const panicScore = panic.panicScore;
@@ -780,15 +817,21 @@ export default function DashboardPage() {
                 </div>
                 <div>
                   <div style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: 22, color: "var(--text)", letterSpacing: "-0.02em" }}>
-                    Our Verdict
+                    {conclusion.verdict ? "Our Verdict" : "Data Degraded — Verdict Suppressed"}
                   </div>
-                  <div style={{ fontSize: 13, color: riskColors[conclusion.riskLevel].text, fontWeight: 600, marginTop: 2, fontFamily: "var(--font-body)" }}>
-                    {conclusion.verdict}
-                  </div>
+                  {conclusion.verdict ? (
+                    <div style={{ fontSize: 13, color: riskColors[conclusion.riskLevel].text, fontWeight: 600, marginTop: 2, fontFamily: "var(--font-body)" }}>
+                      {conclusion.verdict}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 13, color: "var(--warn)", fontWeight: 600, marginTop: 2, fontFamily: "var(--font-body)" }}>
+                      Inputs degraded or incomplete — no verdict rendered
+                    </div>
+                  )}
                 </div>
                 <div style={{ marginLeft: "auto" }}>
-                  <span className={`badge ${conclusion.riskLevel === "low" ? "badge-up" : conclusion.riskLevel === "medium" ? "badge-warn" : "badge-down"}`} style={{ fontSize: 12, padding: "6px 16px" }}>
-                    {conclusion.riskLevel === "low" ? "Low Risk" : conclusion.riskLevel === "medium" ? "Moderate Risk" : "High Risk"}
+                  <span className={`badge ${!conclusion.verdict ? "badge-warn" : conclusion.riskLevel === "low" ? "badge-up" : conclusion.riskLevel === "medium" ? "badge-warn" : "badge-down"}`} style={{ fontSize: 12, padding: "6px 16px" }}>
+                    {!conclusion.verdict ? "Degraded State" : conclusion.riskLevel === "low" ? "Low Risk" : conclusion.riskLevel === "medium" ? "Moderate Risk" : "High Risk"}
                   </span>
                 </div>
               </div>

@@ -38,7 +38,7 @@
 
 ## 🧠 Overview
 
-**SheepOrSleep** is a production-ready, full-stack behavioral finance application that helps Indian retail investors identify and overcome psychological biases — **herd mentality**, **panic selling**, and **emotional trading** — using econometric models and AI.
+**SheepOrSleep** is an educational, full-stack behavioral finance application and prototype that helps retail investors explore psychological biases — **herd mentality**, **panic selling**, and **emotional trading** — using econometric models and AI.
 
 The application combines:
 
@@ -73,31 +73,31 @@ SheepOrSleep provides a **data-driven "mirror"** that reflects these patterns ba
 - Reports herding intensity score (0–100)
 
 ### 2. 😰 Panic Selling Scanner
-Multi-factor real-time panic detection:
+Multi-factor panic heuristic scoring:
 
 | Factor | Weight | What It Measures |
 |--------|--------|-----------------|
-| Volume Anomaly | 30% | Z-score > 2 on down-days |
-| Delivery Pressure | 20% | Low delivery % = speculative selling |
+| Volume Anomaly | 30% | Lagged z-score > 2 on down-days |
+| Intraday Range Ratio | 20% | High-low range expansion proxy relative to 20-day mean |
 | Price-Volume Divergence | 25% | Price falling while volume surges |
-| Drawdown Severity | 15% | Distance from 52-week high |
+| Drawdown Severity | 15% | Drawdown from high of analysis window (90–180 days) |
 | Volatility Regime | 10% | Current vs average realized volatility |
 
 Outputs a **Panic Score (0–100)** with severity levels: CALM → LOW → MODERATE → HIGH → EXTREME.
 
 ### 3. 💰 Behavior Gap Analysis
-- Computes **Investment CAGR** (buy-and-hold returns)
-- Estimates **Investor CAGR** (what average investors actually earned)
-- Calculates the **Behavior Gap** — the cost of emotional trading
+- Computes **Investment CAGR** (buy-and-hold returns using 252 trading days/year)
+- Estimates **Investor CAGR proxy** (exploratory proxy scaling volume-price correlation by CAGR)
+- Calculates the **Behavior Gap proxy** — an illustration of timing drag
 - Shows **10-year cost** on ₹10,00,000 of emotional decisions
-- "Missing Best Days" analysis: how missing 5, 10, 15, 20, 30 best trading days destroys returns
+- "Missing Best Days" analysis: how missing 5, 10, 15, 20, 30 best trading days impacts returns
 
 ### 4. 📊 Monte Carlo Simulation (SIP vs Panic)
 - Runs **500 stochastic simulations** using historical return distributions
 - Compares two investor profiles:
   - **Disciplined SIP**: Invests ₹10,000/month regardless of conditions
   - **Panic Seller**: Exits after every 10% drawdown, waits 90 days to re-enter
-- Outputs wealth distribution histograms and SIP win-rate
+- Outputs wealth distribution histograms and SIP win-rate (note: win-rate is sensitive to drift assumptions)
 
 ### 5. 🤖 AI Financial Copilot
 - Powered by **Groq LLaMA 3.3-70b-versatile**
@@ -125,7 +125,7 @@ The report ends with a **clear, actionable conclusion** that summarizes all find
                       ▼
 ┌──────────────────────────────────────────────────────────┐
 │                  PYTHON API SERVER                       │
-│            FastAPI · Uvicorn (port 8001)                 │
+│            FastAPI · Uvicorn (port 8000)                 │
 │                                                          │
 │  ┌─────────────┐  ┌──────────────┐  ┌────────────────┐  │
 │  │  /api/analyze│  │  /api/chat   │  │  /api/stocks   │  │
@@ -186,7 +186,7 @@ The report ends with a **clear, actionable conclusion** that summarizes all find
 | Next.js | 16.2 | React framework (App Router) |
 | React | 19.0 | UI library |
 | Tailwind CSS | v4 | Utility-first styling |
-| Recharts | 2.15 | Interactive charts (candlestick, scatter, bar) |
+| Recharts | ^3.8.0 | Interactive charts (candlestick, scatter, bar) |
 | Lucide React | Latest | Icon system |
 | TypeScript | 5.x | Type safety |
 
@@ -195,7 +195,7 @@ The report ends with a **clear, actionable conclusion** that summarizes all find
 ## 📂 Project Structure
 
 ```
-TechKrutiVerse/
+sheep_or_sleep/
 ├── server.py                    # FastAPI backend — all analytics + API routes
 ├── requirements.txt             # Python dependencies
 ├── .env                         # Environment variables (GROQ_API_KEY)
@@ -220,8 +220,7 @@ TechKrutiVerse/
 │   │       └── stockUniverse.ts # 54 Indian stocks (NIFTY 50 + NEXT 50)
 │   │
 │   ├── .env.local               # Frontend env (NEXT_PUBLIC_API_URL)
-│   ├── package.json
-│   └── tailwind.config.ts
+│   └── package.json
 │
 ├── analytics/                   # Original Streamlit analytics modules
 ├── ai/                          # Original AI/LLM modules
@@ -245,8 +244,8 @@ TechKrutiVerse/
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/YashHelge/TGPCET_Team_Red_Horse.git
-cd TGPCET_Team_Red_Horse
+git clone https://github.com/KritishBokde91/binary-investor.git
+cd binary-investor
 ```
 
 ### 2. Set Up the Backend
@@ -262,10 +261,10 @@ cp .env.example .env
 #   GROQ_MODEL=llama-3.3-70b-versatile
 
 # Start the API server
-uvicorn server:app --host 0.0.0.0 --port 8001
+uvicorn server:app --host 0.0.0.0 --port 8000
 ```
 
-The API will be available at `http://localhost:8001`.
+The API will be available at `http://localhost:8000`.
 
 ### 3. Set Up the Frontend
 
@@ -277,7 +276,7 @@ cd binary-investor
 npm install
 
 # Configure API URL (already set by default)
-# .env.local contains: NEXT_PUBLIC_API_URL=http://localhost:8001
+# .env.local contains: NEXT_PUBLIC_API_URL=http://localhost:8000
 
 # Start the dev server
 npm run dev
@@ -463,7 +462,7 @@ This produces wealth distribution histograms comparing outcomes — typically sh
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `NEXT_PUBLIC_API_URL` | Yes | `http://localhost:8001` | Python API server URL |
+| `NEXT_PUBLIC_API_URL` | Yes | `http://localhost:8000` | Python API server URL |
 
 ---
 
@@ -510,9 +509,9 @@ This project implements peer-reviewed behavioral finance research:
 
 ### Development Tips
 
-- Run the backend in dev mode: `uvicorn server:app --reload --port 8001`
+- Run the backend in dev mode: `uvicorn server:app --reload --port 8000`
 - Run the frontend: `cd binary-investor && npm run dev`
-- API docs are auto-generated at `http://localhost:8001/docs` (Swagger UI)
+- API docs are auto-generated at `http://localhost:8000/docs` (Swagger UI)
 
 ---
 

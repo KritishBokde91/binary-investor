@@ -106,18 +106,18 @@ class HerdDetector:
             except np.linalg.LinAlgError:
                 se = np.array([0, 0, 0])
 
-            # T-statistics and p-values for γ₂
+            # T-statistics and p-values for γ₂ (one-sided for gamma2 < 0)
             t_stat_gamma2 = gamma2 / se[2] if se[2] > 0 else 0
-            p_value_gamma2 = 2 * (1 - stats.t.cdf(abs(t_stat_gamma2), df=n - k))
+            p_value_gamma2 = float(stats.t.sf(-t_stat_gamma2, df=n - k))
 
             # Herding detection
             herding_detected = gamma2 < 0 and p_value_gamma2 < 0.05
 
-            # Herding intensity (0-100)
+            # Herding intensity (0-100, 0 for non-herding)
             if herding_detected:
                 intensity = min(100, abs(gamma2 / max(abs(gamma1), 1e-6)) * 100)
             else:
-                intensity = max(0, min(20, abs(gamma2) * 1000))
+                intensity = 0.0
 
             return {
                 "alpha": round(alpha, 6),
