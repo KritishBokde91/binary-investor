@@ -33,12 +33,28 @@ from sheep_or_sleep.analytics import (
 from dotenv import load_dotenv
 load_dotenv()
 
-from fastapi import FastAPI, HTTPException
+import asyncio
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
 
+from sheep_or_sleep.cache.service import CacheService
+from sheep_or_sleep.api.auth import get_auth_user
+from sheep_or_sleep.api.rate_limiter import check_rate_limit
+from sheep_or_sleep.api.schemas import (
+    LivenessResponse,
+    ReadinessResponse,
+    MetricsResponse,
+    StockListResponse,
+    QuoteResponse,
+    AnalyzeResponse,
+    ChatResponse,
+    HealthResponse,
+)
+
 # ─── App ──────────────────────────────────────────────
 app = FastAPI(title="SheepOrSleep API", version="1.0.0")
+cache_service = CacheService()
 
 raw_origins = os.getenv("ALLOWED_ORIGINS", os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000"))
 allowed_origins = [orig.strip() for orig in raw_origins.split(",") if orig.strip()]
@@ -271,18 +287,84 @@ def get_price_chart(symbol: str, period_days: int = 365) -> list[dict]:
     ]
 
 
+# ─── System Readiness ─────────────────────────────────
+
+async def check_system_readiness() -> dict[str, str]:
+    pg_status = "ok"
+    redis_status = "ok"
+
+    # Check Postgres
+    try:
+        from sheep_or_sleep.db.base import get_async_engine
+        from sqlalchemy import text
+        engine = get_async_engine()
+        async with engine.connect() as conn:
+            await asyncio.wait_for(conn.execute(text("SELECT 1")), timeout=2.0)
+    except Exception:
+        pg_status = "down"
+
+    # Check Redis
+    try:
+        from sheep_or_sleep.cache.client import get_redis_client
+        redis_client = get_redis_client()
+        await asyncio.wait_for(redis_client.ping(), timeout=2.0)
+    except Exception:
+        redis_status = "down"
+
+    overall = "ok" if (pg_status == "ok" and redis_status == "ok") else "down"
+    return {
+        "status": overall,
+        "postgres": pg_status,
+        "redis": redis_status,
+    }
+
+
+# ─── Probes & Observability ───────────────────────────
+
+@app.get("/healthz", response_model=LivenessResponse)
+async def healthz():
+    return {"status": "ok"}
+
+
+@app.get("/readyz", response_model=ReadinessResponse)
+async def readyz():
+    res = await check_system_readiness()
+    if res["status"] != "ok":
+        raise HTTPException(status_code=503, detail=res)
+    return res
+
+
+@app.get("/api/metrics", response_model=MetricsResponse)
+async def api_metrics():
+    return await cache_service.get_metrics()
+
+
 # ─── API Routes ──────────────────────────────────────
 
-@app.get("/api/stocks")
-def list_stocks():
+@app.get("/api/stocks", response_model=StockListResponse)
+async def list_stocks():
     return {"stocks": STOCK_UNIVERSE}
 
 
-@app.get("/api/quote")
-def get_quote(symbol: str):
+@app.get("/api/quote", response_model=QuoteResponse)
+async def get_quote(
+    symbol: str,
+    auth: str = Depends(get_auth_user),
+    _rate: None = Depends(check_rate_limit),
+):
     if not SYMBOL_PATTERN.match(symbol) or symbol not in KNOWN_SYMBOLS:
         raise HTTPException(status_code=400, detail=f"Invalid or unknown symbol: {symbol}")
-    return fetch_quote(symbol)
+
+    async def _fetch():
+        return fetch_quote(symbol)
+
+    cached_quote = await cache_service.get_or_compute(
+        f"quote:{symbol}",
+        _fetch,
+        ttl_sec=60,
+        stale_ttl_sec=300,
+    )
+    return cached_quote
 
 
 class AnalyzeRequest(BaseModel):
@@ -302,8 +384,12 @@ class AnalyzeRequest(BaseModel):
         return v
 
 
-@app.post("/api/analyze")
-def analyze(req: AnalyzeRequest):
+@app.post("/api/analyze", response_model=AnalyzeResponse)
+async def analyze(
+    req: AnalyzeRequest,
+    auth: str = Depends(get_auth_user),
+    _rate: None = Depends(check_rate_limit),
+):
     """One-tap: run ALL analytics for a stock and return everything."""
     # Pre-check historical data and quote to avoid silent zero-filled responses
     hist_check = fetch_historical(req.symbol, req.periodDays)
@@ -318,39 +404,43 @@ def analyze(req: AnalyzeRequest):
             },
         )
 
-    price_chart = get_price_chart(req.symbol, req.periodDays)
-    herding = compute_herding(req.symbol, req.periodDays)
-    panic = compute_panic(req.symbol, min(req.periodDays, 180))
-    gap = compute_behavior_gap(req.symbol, max(req.periodDays // 365, 2))
-    missing = compute_missing_days(req.symbol, max(req.periodDays // 365, 3))
-    mc = simulate_sip_vs_panic(req.symbol, req.simYears, req.sipAmount, req.nSimulations)
+    async def _compute_all():
+        price_chart = get_price_chart(req.symbol, req.periodDays)
+        herding = compute_herding(req.symbol, req.periodDays)
+        panic = compute_panic(req.symbol, min(req.periodDays, 180))
+        gap = compute_behavior_gap(req.symbol, max(req.periodDays // 365, 2))
+        missing = compute_missing_days(req.symbol, max(req.periodDays // 365, 3))
+        mc = simulate_sip_vs_panic(req.symbol, req.simYears, req.sipAmount, req.nSimulations)
 
-    status: Literal["ok", "degraded", "unavailable"] = "ok"
-    reasons: list[str] = []
+        status: Literal["ok", "degraded", "unavailable"] = "ok"
+        reasons: list[str] = []
 
-    if herding.get("error"):
-        status = "degraded"
-        reasons.append(f"Herding: {herding['error']}")
-    if panic.get("level") == "NO DATA":
-        status = "degraded"
-        reasons.append("Panic: Insufficient data")
-    if gap.get("gapInterpretation") == "Insufficient data":
-        status = "degraded"
-        reasons.append("BehaviorGap: Insufficient data")
+        if herding.get("error"):
+            status = "degraded"
+            reasons.append(f"Herding: {herding['error']}")
+        if panic.get("level") == "NO DATA":
+            status = "degraded"
+            reasons.append("Panic: Insufficient data")
+        if gap.get("gapInterpretation") == "Insufficient data":
+            status = "degraded"
+            reasons.append("BehaviorGap: Insufficient data")
 
-    return {
-        "status": status,
-        "as_of": datetime.now(timezone.utc).isoformat(),
-        "data_version": "1.0",
-        "reason": "; ".join(reasons) if reasons else None,
-        "quote": quote,
-        "priceChart": price_chart,
-        "herding": herding,
-        "panic": panic,
-        "behaviorGap": gap,
-        "missingDays": missing,
-        "monteCarlo": mc,
-    }
+        return {
+            "status": status,
+            "as_of": datetime.now(timezone.utc).isoformat(),
+            "data_version": "1.0",
+            "reason": "; ".join(reasons) if reasons else None,
+            "quote": quote,
+            "priceChart": price_chart,
+            "herding": herding,
+            "panic": panic,
+            "behaviorGap": gap,
+            "missingDays": missing,
+            "monteCarlo": mc,
+        }
+
+    cache_key = f"analysis:{req.symbol}:{req.periodDays}:{req.sipAmount}:{req.simYears}:{req.nSimulations}"
+    return await cache_service.get_or_compute(cache_key, _compute_all, ttl_sec=300, stale_ttl_sec=1800)
 
 
 class ChatMessage(BaseModel):
@@ -363,8 +453,12 @@ class ChatRequest(BaseModel):
     context: Optional[str] = None  # Dropped from system prompt per AUDIT.md Phase 0 Item f
 
 
-@app.post("/api/chat")
-def chat(req: ChatRequest):
+@app.post("/api/chat", response_model=ChatResponse)
+async def chat(
+    req: ChatRequest,
+    auth: str = Depends(get_auth_user),
+    _rate: None = Depends(check_rate_limit),
+):
     if not GROQ_API_KEY:
         raise HTTPException(status_code=503, detail="Groq API key not configured.")
     try:
@@ -378,7 +472,8 @@ Keep responses concise with clear formatting."""
         messages = [{"role": "system", "content": system}] + [
             {"role": m.role, "content": m.content} for m in req.messages
         ]
-        response = client.chat.completions.create(
+        response = await asyncio.to_thread(
+            client.chat.completions.create,
             model=GROQ_MODEL,
             messages=messages,
             temperature=0.3,
@@ -392,8 +487,8 @@ Keep responses concise with clear formatting."""
         )
 
 
-@app.get("/api/health")
-def health():
+@app.get("/api/health", response_model=HealthResponse)
+async def health():
     return {"status": "ok", "groq": bool(GROQ_API_KEY)}
 
 

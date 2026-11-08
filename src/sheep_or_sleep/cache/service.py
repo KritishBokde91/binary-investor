@@ -78,10 +78,10 @@ class CacheService:
 
     async def get(self, key: str) -> Optional[Any]:
         """Fetch raw cached payload."""
-        data_str = await self._redis.get(key)
-        if not data_str:
-            return None
         try:
+            data_str = await self._redis.get(key)
+            if not data_str:
+                return None
             payload = json.loads(data_str)
             return payload.get("value")
         except Exception:
@@ -99,7 +99,10 @@ class CacheService:
             "fresh_until": fresh_until,
             "stale_until": stale_until,
         }
-        await self._redis.set(key, json.dumps(payload), ex=total_ttl)
+        try:
+            await self._redis.set(key, json.dumps(payload), ex=total_ttl)
+        except Exception as e:
+            logger.warning("Redis set failed for %s: %s", key, e)
 
     async def get_or_compute(
         self,
@@ -111,7 +114,12 @@ class CacheService:
     ) -> Any:
         """Fetch from cache, coordinate single-flight lock on misses, or stale-while-revalidate."""
         now = time.time()
-        cached_raw = await self._redis.get(key)
+        try:
+            cached_raw = await self._redis.get(key)
+        except Exception as e:
+            logger.warning("Redis unavailable during get, bypassing cache for %s: %s", key, e)
+            self._misses += 1
+            return await loader()
 
         if cached_raw:
             try:
